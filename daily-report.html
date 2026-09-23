@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700;900&family=Noto+Sans+TC:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --broth:#241b16;
+    --broth-2:#332521;
+    --paper:#fbf6ec;
+    --paper-2:#f2ead9;
+    --ink:#2b2420;
+    --chili:#a6402d;
+    --chili-dark:#7e2f21;
+    --scallion:#5b7b54;
+    --lcd:#f2b705;
+    --line:#d8cbb2;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--broth);
+    color:var(--ink);
+    font-family:'Noto Sans TC', sans-serif;
+    min-height:100vh;
+    padding:0 14px 60px;
+  }
+  .page{max-width:560px;margin:0 auto;transition:max-width 0.15s ease;}
+  @media (min-width:760px){ .page{ max-width:680px; } }
+
+  /* ---- Capital dashboard (fixed, always visible at top) ---- */
+  .capital-bar{
+    position:sticky; top:0; z-index:10;
+    margin:0 -14px 20px; padding:14px 20px;
+    background:linear-gradient(180deg, var(--broth) 0%, var(--broth-2) 100%);
+    border-bottom:2px solid var(--lcd);
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 10px;
+    box-shadow:0 6px 16px rgba(0,0,0,0.4);
+  }
+  .capital-bar .cap-label{ font-family:'Space Mono', monospace; font-size:10.5px; color:#a8977d; letter-spacing:0.12em; display:block; }
+  .capital-bar .cap-sub{ font-size:10px; color:#7d6f5c; margin-top:2px; }
+  .capital-bar .cap-value{
+    font-family:'Space Mono', monospace; font-size:26px; color:var(--lcd);
+    text-shadow:0 0 10px rgba(242,183,5,0.5); letter-spacing:0.02em;
+  }
+  .capital-bar .finance-switch-btn{
+    display:inline-block; flex-shrink:0;
+    font-family:'Noto Sans TC', sans-serif; font-size:12px; font-weight:700;
+    color:var(--lcd); border:1px solid var(--lcd); border-radius:20px;
+    padding:7px 14px; text-decoration:none; white-space:nowrap; margin-left:10px;
+  }
+  .capital-bar .finance-switch-btn:hover{ background:rgba(242,183,5,0.12); }
+
+  .masthead{ text-align:center; color:var(--paper); margin:20px 0 22px; }
+  .masthead .eyebrow{
+    font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.35em;
+    color:var(--lcd); text-transform:uppercase; display:block; margin-bottom:6px;
+  }
+  .masthead h1{ font-family:'Noto Serif TC', serif; font-weight:900; font-size:30px; margin:0; letter-spacing:0.06em; }
+  .masthead p{ font-size:12.5px; color:#cbbfa8; margin:6px 0 0; }
+
+  .tier-label{ display:flex; align-items:center; gap:8px; margin:0 0 10px 2px; }
+  .tier-label .num{
+    width:20px; height:20px; border-radius:50%; background:var(--chili); color:#fff;
+    font-family:'Space Mono', monospace; font-size:11px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .tier-label .txt{ color:var(--paper); font-family:'Noto Serif TC', serif; font-weight:700; font-size:14px; }
+
+  /* ---- Ticket (輸入層) ---- */
+  .ticket{
+    position:relative; background:var(--paper); border-radius:2px;
+    padding:26px 24px 22px; box-shadow:0 18px 40px rgba(0,0,0,0.35); margin-bottom:28px;
+  }
+  .ticket::before, .ticket::after{
+    content:""; position:absolute; left:0; right:0; height:14px;
+    background: radial-gradient(circle at 10px 0, transparent 7px, var(--broth) 7.5px) top left/20px 14px repeat-x;
+  }
+  .ticket::before{ top:-1px; transform:scaleY(-1); }
+  .ticket::after{ bottom:-1px; }
+
+  .ticket-title{
+    font-family:'Noto Serif TC', serif; font-weight:700; font-size:17px;
+    display:flex; align-items:baseline; justify-content:space-between;
+    border-bottom:2px dashed var(--line); padding-bottom:10px; margin-bottom:16px;
+  }
+  .ticket-title span.no{ font-family:'Space Mono', monospace; font-size:11px; color:var(--chili); letter-spacing:0.1em; }
+
+  .date-row{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .date-row label{ font-size:13px; color:#6b5f52; white-space:nowrap; }
+  .date-row input[type=date]{
+    flex:1; font-family:'Space Mono', monospace; font-size:14px; padding:8px 10px;
+    border:1px solid var(--line); border-radius:4px; background:#fff; color:var(--ink);
+  }
+
+  /* 貨款：放最上面，用醒目樣式強調 */
+  .payment-block{
+    background:var(--broth); border-radius:6px; padding:12px 14px; margin-bottom:18px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .payment-block label{ color:var(--paper); font-size:13px; font-weight:700; }
+  .payment-block input{
+    width:130px; font-family:'Space Mono', monospace; font-size:16px; text-align:right;
+    padding:7px 9px; border:1px solid var(--lcd); border-radius:4px; background:#fff; color:var(--ink);
+  }
+
+  /* 營業額：一樣醒目，用綠色跟貨款做出區隔 */
+  .revenue-block{
+    background:var(--scallion); border-radius:6px; padding:12px 14px; margin-bottom:18px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .revenue-block label{ color:#fff; font-size:13px; font-weight:700; }
+  .revenue-block input{
+    width:130px; font-family:'Space Mono', monospace; font-size:16px; text-align:right;
+    padding:7px 9px; border:1px solid #fff; border-radius:4px; background:#fff; color:var(--ink);
+  }
+
+  .stepper{ display:flex; align-items:center; gap:6px; }
+  .step-btn{
+    width:28px; height:28px; border-radius:50%; border:1px solid var(--line);
+    background:var(--paper-2); font-size:15px; line-height:1; color:var(--ink);
+    cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; user-select:none;
+  }
+  .step-btn.plus{ background:var(--chili); border-color:var(--chili); color:#fff; }
+  .step-btn.plus:active{ background:var(--chili-dark); }
+  .step-btn.minus:active{ background:#e4d9c2; }
+  .step-val{
+    width:44px; text-align:center; font-family:'Space Mono', monospace; font-size:14px;
+    border:1px solid var(--line); border-radius:4px; padding:5px 2px; color:var(--ink); -moz-appearance:textfield;
+  }
+  .step-val::-webkit-outer-spin-button, .step-val::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .step-val:focus{ outline:2px solid var(--chili); outline-offset:1px; }
+
+  /* 鍋數(估) + 工讀生人次 + 薪資，同一張卡 */
+  .staff-box{ background:#fff; border:1px solid var(--line); border-radius:6px; padding:10px 12px; margin-bottom:16px; }
+  .staff-row{ display:flex; align-items:center; justify-content:space-between; padding:7px 0; }
+  .staff-row + .staff-row{ border-top:1px dashed var(--line); margin-top:2px; padding-top:9px; }
+  .staff-row .staff-label{ font-size:13px; color:var(--ink); font-weight:500; }
+  .staff-wage-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:9px; border-top:1px dashed var(--line); margin-top:5px; }
+  .staff-wage-row label{ font-size:12px; color:#8a7b68; }
+  .staff-wage-row input{
+    width:110px; text-align:right; font-family:'Space Mono', monospace; font-size:14px;
+    padding:6px 8px; border:1px solid var(--line); border-radius:4px; background:#fff; color:var(--ink);
+  }
+
+  /* ---- 運算層 ---- */
+  .calc-card{
+    background:var(--broth-2); border-radius:8px; padding:16px 18px; margin-bottom:16px;
+    box-shadow:inset 0 2px 8px rgba(0,0,0,0.35);
+  }
+  .calc-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:7px 0; border-bottom:1px dashed rgba(255,255,255,0.1);
+    font-family:'Space Mono', monospace; font-size:13px;
+  }
+  .calc-row:last-child{ border-bottom:none; }
+  .calc-row .cl-label{ color:#c9b99a; font-family:'Noto Sans TC', sans-serif; font-size:12.5px; }
+  .calc-row .cl-value{ color:#e8dcc4; }
+  .calc-row.highlight{ margin-top:4px; padding-top:12px; border-top:2px solid var(--lcd); }
+  .calc-row.highlight .cl-label{ color:var(--lcd); font-weight:700; }
+  .calc-row.highlight .cl-value{ color:var(--lcd); font-size:19px; text-shadow:0 0 8px rgba(242,183,5,0.45); }
+
+  .submit-btn{
+    width:100%; padding:13px; background:var(--chili); color:#fff;
+    border:none; border-radius:5px; font-family:'Noto Sans TC', sans-serif; font-weight:700;
+    font-size:15px; letter-spacing:0.05em; cursor:pointer; transition:background 0.15s ease;
+  }
+  .submit-btn:hover{ background:var(--chili-dark); }
+  .submit-btn:disabled{ opacity:0.6; cursor:default; }
+
+  .status-msg{ text-align:center; font-size:12.5px; margin-top:10px; min-height:16px; color:var(--scallion); font-weight:500; }
+  .status-msg.error{ color:var(--chili); }
+
+  /* ---- 當月層 ---- */
+  .ledger{ background:var(--paper); border-radius:8px; padding:20px 18px 18px; box-shadow:0 12px 30px rgba(0,0,0,0.3); }
+  .ledger-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+  .ledger-head h2{ font-family:'Noto Serif TC', serif; font-size:16.5px; margin:0; }
+  .week-nav{ display:flex; gap:6px; align-items:center; }
+  .week-nav button{
+    font-family:'Space Mono', monospace; font-size:12px; border:1px solid var(--line);
+    background:#fff; border-radius:4px; padding:6px 10px; cursor:pointer; color:var(--ink);
+  }
+  .week-nav button:hover{ background:var(--paper-2); }
+  .week-range{ font-family:'Space Mono', monospace; font-size:11.5px; color:#8a7b68; width:100%; margin-top:2px; }
+
+  /* 表格較寬（7欄），手機上改用橫向捲動，不要把版面撐爆 */
+  .table-scroll{
+    overflow-x:auto;
+    margin:0 -2px;
+  }
+  .scroll-hint{
+    display:none;
+    text-align:center; font-size:10.5px; color:#a08a6a; margin-top:6px;
+  }
+  @media (max-width:640px){
+    .scroll-hint{ display:block; }
+  }
+
+  table{ width:100%; min-width:480px; border-collapse:collapse; font-size:13px; }
+  th, td{ padding:7px 4px; text-align:center; border-bottom:1px solid var(--line); font-family:'Space Mono', monospace; white-space:nowrap; }
+  th{ font-family:'Noto Sans TC', sans-serif; font-weight:700; font-size:11.5px; color:#6b5f52; border-bottom:2px solid var(--ink); }
+  td.day-label{ font-family:'Noto Sans TC', sans-serif; text-align:left; font-weight:500; font-size:12.5px; line-height:1.2; padding-top:6px; padding-bottom:6px; }
+  td.day-label .wd{ color:#a08a6a; font-size:9.5px; display:block; margin-top:1px; }
+  tr.today td{ background:rgba(166,64,45,0.06); }
+  tr.empty-row td{ color:#c2b8a3; }
+  tr.closed-row td{ color:#a08a6a; font-style:italic; }
+  td.profit-pos{ color:var(--scallion); font-weight:700; }
+  td.profit-neg{ color:var(--chili); font-weight:700; }
+  tr.closed-row td.profit-pos{ color:var(--scallion); font-style:normal; }
+  tr.closed-row td.profit-neg{ color:var(--chili); font-style:normal; }
+  tfoot td{ font-weight:700; border-top:2px solid var(--ink); border-bottom:none; background:var(--paper-2); }
+
+  .ledger-foot{ display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .sheet-link{
+    font-family:'Noto Sans TC', sans-serif; font-size:12px; color:var(--scallion); background:none;
+    border:1px solid var(--scallion); border-radius:5px; padding:7px 12px; cursor:pointer; text-decoration:none;
+  }
+  .sheet-link:hover{ background:rgba(91,123,84,0.08); }
+
+  .loading-note{ text-align:center; font-size:12px; color:#8a7b68; padding:10px; }
+  .owner-nav{
+    display:flex; gap:6px; justify-content:center; flex-wrap:wrap;
+    padding:10px 8px 0;
+  }
+  .owner-nav a{
+    font-family:'Noto Sans TC', sans-serif; font-size:11.5px; font-weight:700;
+    color:var(--lcd); border:1px solid var(--lcd); border-radius:20px;
+    padding:6px 13px; text-decoration:none;
+  }
+  .owner-nav a:hover{ background:rgba(242,183,5,0.1); }
+  .owner-nav a.active{ background:var(--lcd); color:var(--broth); }
+</style>
+</head>
+<body>
+
+<nav class="owner-nav">
+  <a href="owner.html">🏠 總覽</a>
+  <a href="admin.html">📋 訂單看板</a>
+  <a href="daily-report.html" class="active">📊 鍋物日報</a>
+  <a href="finance.html">💰 財務報表</a>
+</nav>
+
+<div class="capital-bar">
+  <div>
+    <span class="cap-label">資本額 · CAPITAL</span>
+    <span class="cap-sub">= 逐日累計：起始值 +（50%營業額－貨款）</span>
+  </div>
+  <span class="cap-value" id="capital-value">$ --</span>
+  <a class="finance-switch-btn" href="finance.html">📊 財務報表</a>
+</div>
+
+<div class="page">
+
+  <div class="masthead">
+    <span class="eyebrow">Daily Report · 每日記帳</span>
+    <h1>鍋 物 日 報</h1>
+    <p>貨款・鍋數(估)・薪水登記，自動試算當日成本與淨利</p>
+  </div>
+
+  <!-- 第一層：輸入層 -->
+  <div class="tier-label"><span class="num">1</span><span class="txt">輸入層 — 貨款 / 鍋數 / 薪水</span></div>
+
+  <div class="ticket">
+    <div class="ticket-title">
+      <span>今日登記</span>
+      <span class="no" id="ticket-no">NO. ------</span>
+    </div>
+
+    <div class="date-row">
+      <label for="entry-date">日期</label>
+      <input type="date" id="entry-date">
+    </div>
+
+    <div class="revenue-block">
+      <label for="revenue-input">今日總營業額（元）</label>
+      <input type="number" id="revenue-input" min="0" step="1" placeholder="0">
+    </div>
+
+    <div class="payment-block">
+      <label for="payment-input">貨款（付給供應商）</label>
+      <input type="number" id="payment-input" min="0" step="1" placeholder="0">
+    </div>
+
+    <div class="staff-box">
+      <div class="staff-row">
+        <span class="staff-label">鍋數（估）</span>
+        <div class="stepper">
+          <button type="button" class="step-btn minus" data-target="qty-est" data-d="-1">－</button>
+          <input type="number" class="step-val" id="qty-est" value="0" min="0" step="1" inputmode="numeric">
+          <button type="button" class="step-btn plus" data-target="qty-est" data-d="1">＋</button>
+        </div>
+      </div>
+      <div class="staff-row">
+        <span class="staff-label">工讀生人次</span>
+        <div class="stepper">
+          <button type="button" class="step-btn minus" data-target="staff-count" data-d="-1">－</button>
+          <input type="number" class="step-val" id="staff-count" value="0" min="0" step="1" inputmode="numeric">
+          <button type="button" class="step-btn plus" data-target="staff-count" data-d="1">＋</button>
+        </div>
+      </div>
+      <div class="staff-wage-row">
+        <label for="staff-wage">薪資總額（元）</label>
+        <input type="number" id="staff-wage" min="0" step="1" placeholder="0">
+      </div>
+    </div>
+  </div>
+
+  <!-- 第二層：運算層 -->
+  <div class="tier-label"><span class="num">2</span><span class="txt">運算層 — 當日試算</span></div>
+
+  <div class="calc-card">
+    <div class="calc-row">
+      <span class="cl-label">總營業額</span>
+      <span class="cl-value" id="calc-revenue">$0</span>
+    </div>
+    <div class="calc-row">
+      <span class="cl-label">成本（營業額 × <span id="calc-cost-rate">50</span>%）</span>
+      <span class="cl-value" id="calc-cost">$0</span>
+    </div>
+    <div class="calc-row">
+      <span class="cl-label">店租攤提</span>
+      <span class="cl-value" id="calc-rent">$0</span>
+    </div>
+    <div class="calc-row">
+      <span class="cl-label">人事成本</span>
+      <span class="cl-value" id="calc-labor">$0</span>
+    </div>
+    <div class="calc-row highlight">
+      <span class="cl-label">淨利</span>
+      <span class="cl-value" id="calc-profit">$0</span>
+    </div>
+  </div>
+
+  <div class="ticket" style="padding:16px 18px;">
+    <button class="submit-btn" id="submit-btn">儲存今日記錄</button>
+    <div class="status-msg" id="status-msg"></div>
+  </div>
+
+  <!-- 第三層：當月層 -->
+  <div class="tier-label"><span class="num">3</span><span class="txt">當月層 — 月報表</span></div>
+
+  <div class="ledger">
+    <div class="ledger-head">
+      <h2>本月記錄</h2>
+      <div class="week-nav">
+        <button id="prev-week">‹ 上月</button>
+        <button id="this-week">本月</button>
+        <button id="next-week">下月 ›</button>
+      </div>
+      <div class="week-range" id="week-range"></div>
+    </div>
+
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left;">日期</th>
+          <th>客單量</th>
+          <th>營業額</th>
+          <th>人事</th>
+          <th>貨款</th>
+          <th>淨利</th>
+          <th>貨款餘額<br><span style="font-weight:400;font-size:9px;">(月底)</span></th>
+        </tr>
+      </thead>
+      <tbody id="week-body"></tbody>
+      <tfoot>
+        <tr>
+          <td style="text-align:left;">月合計</td>
+          <td id="sum-qty">0</td>
+          <td id="sum-rev">$0</td>
+          <td id="sum-labor">$0</td>
+          <td id="sum-payment">$0</td>
+          <td id="sum-profit">$0</td>
+          <td id="week-end-capital">$0</td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+    <div class="loading-note">完整逐日成本結構記錄在 Google 試算表中，週報表／月報表可用下方按鈕重新整理</div>
+    <div class="scroll-hint">← 表格可以左右滑動看更多欄位 →</div>
+
+    <div class="ledger-foot">
+      <button class="sheet-link" id="refresh-reports-btn" type="button">重新整理後台報表（週報表／月報表＋圖表）</button>
+      <a class="sheet-link" id="open-sheet-btn" href="#" target="_blank">在 Google 試算表中開啟 ↗</a>
+    </div>
+    <div class="status-msg" id="reports-status"></div>
+  </div>
+
+  <!-- 外送平台結算：每半月登記一次，獨立於店內每日帳，先不併入淨利/資本額計算 -->
+  <div class="tier-label"><span class="num">🛵</span><span class="txt">外送平台 — 每半月結算</span></div>
+
+  <div class="ticket">
+    <div class="ticket-title">
+      <span>平台結算登記</span>
+      <span class="no" id="platform-ticket-no">NO. ------</span>
+    </div>
+
+    <div class="date-row">
+      <label for="platform-start-date">結算起日</label>
+      <input type="date" id="platform-start-date">
+    </div>
+    <div class="date-row">
+      <label for="platform-end-date">結算迄日</label>
+      <input type="date" id="platform-end-date">
+    </div>
+
+    <div class="revenue-block">
+      <label for="platform-sales">銷售額進帳（元）</label>
+      <input type="number" id="platform-sales" min="0" step="1" placeholder="0">
+    </div>
+
+    <div class="staff-box">
+      <div class="staff-wage-row">
+        <label for="platform-service-fee">服務費（元）</label>
+        <input type="number" id="platform-service-fee" min="0" step="1" placeholder="0">
+      </div>
+      <div class="staff-wage-row" style="border-top:1px dashed var(--line); margin-top:6px; padding-top:9px;">
+        <label for="platform-marketing-fee">行銷開支（元）</label>
+        <input type="number" id="platform-marketing-fee" min="0" step="1" placeholder="0">
+      </div>
+    </div>
+
+    <div class="calc-card">
+      <div class="calc-row">
+        <span class="cl-label">開支合計（服務費＋行銷）</span>
+        <span class="cl-value" id="platform-calc-expense">$0</span>
+      </div>
+      <div class="calc-row highlight">
+        <span class="cl-label">平臺淨利</span>
+        <span class="cl-value" id="platform-calc-profit">$0</span>
+      </div>
+    </div>
+
+    <button class="submit-btn" id="platform-submit-btn">儲存本期平台結算</button>
+    <div class="status-msg" id="platform-status-msg"></div>
+  </div>
+
+  <div class="ledger">
+    <div class="ledger-head">
+      <h2>近期平台結算紀錄</h2>
+    </div>
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left;">期間</th>
+          <th>銷售額</th>
+          <th>服務費</th>
+          <th>行銷</th>
+          <th>開支合計</th>
+          <th>平臺淨利</th>
+        </tr>
+      </thead>
+      <tbody id="platform-history-body"></tbody>
+    </table>
+    </div>
+    <div class="loading-note">同一個「結算起日」再存一次會覆蓋更新，不會重複新增一列</div>
+  </div>
+
+</div>
+
+<script>
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwkOJlJvOwW9eZduOLcx5UW7hOWsrvtIpGzg7Us4pT3xWOw4YFbSg8n9F5IAFOg9qoc6Q/exec';
+async function runGS(fnName, ...args) {
+  const res = await fetch(BACKEND_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 純文字避免CORS預檢，Apps Script這邊固定用法
+    body: JSON.stringify({ action: fnName, args: args }),
+  });
+  const data = await res.json();
+  if (!data || data.ok === false) throw new Error((data && data.error) || '後端回應失敗');
+  return data.data;
+}
+
+function pad(n){ return n.toString().padStart(2,'0'); }
+function toDateStr(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function parseDateStr(s){ const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+const WEEKDAY_ZH = ['日','一','二','三','四','五','六'];
+
+function getMonthStart(date){
+  const d = new Date(date.getFullYear(), date.getMonth(), 1);
+  d.setHours(0,0,0,0);
+  return d;
+}
+function getMonthEnd(date){
+  const d = new Date(date.getFullYear(), date.getMonth()+1, 0); // 下個月第0天＝這個月最後一天
+  d.setHours(0,0,0,0);
+  return d;
+}
+let monthOffset = 0;
+function fmtMoney(n){ return '$' + Number(n||0).toLocaleString('zh-TW'); }
+function todayStr(){ return toDateStr(new Date()); }
+
+// ---- config (成本率 / 店租攤提 / 起始資本額)，前後端共用同一組數字 ----
+let CONFIG = { costRate: 0.5, rentPerDay: 1000, startCapital: -7595 };
+
+function adjustStep(inputEl, delta, min=0){
+  let v = Number(inputEl.value) || 0;
+  v = Math.max(min, v + delta);
+  inputEl.value = v;
+  updateAll();
+}
+
+document.querySelectorAll('.step-btn[data-target]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById(btn.dataset.target);
+    adjustStep(input, Number(btn.dataset.d));
+  });
+});
+
+const dateInput = document.getElementById('entry-date');
+const paymentInput = document.getElementById('payment-input');
+const qtyEstInput = document.getElementById('qty-est');
+const staffCountInput = document.getElementById('staff-count');
+const staffWageInput = document.getElementById('staff-wage');
+const revenueInput = document.getElementById('revenue-input');
+const statusMsg = document.getElementById('status-msg');
+const ticketNo = document.getElementById('ticket-no');
+const submitBtn = document.getElementById('submit-btn');
+
+[qtyEstInput, staffCountInput, staffWageInput, revenueInput].forEach(el => {
+  el.addEventListener('input', () => {
+    if(Number(el.value) < 0) el.value = 0;
+    updateAll();
+  });
+});
+
+// ---- 第二層：運算層即時試算 ----
+function updateAll(){
+  const totalRevenue = Number(revenueInput.value) || 0;
+  const cost = totalRevenue * CONFIG.costRate;
+  const rent = CONFIG.rentPerDay;
+  const laborCost = Number(staffWageInput.value) || 0;
+  const netProfit = totalRevenue - cost - rent - laborCost;
+
+  document.getElementById('calc-revenue').textContent = fmtMoney(totalRevenue);
+  document.getElementById('calc-cost').textContent = fmtMoney(cost);
+  document.getElementById('calc-rent').textContent = fmtMoney(rent);
+  document.getElementById('calc-labor').textContent = fmtMoney(laborCost);
+  const profitEl = document.getElementById('calc-profit');
+  profitEl.textContent = fmtMoney(netProfit);
+  profitEl.style.color = netProfit < 0 ? 'var(--chili)' : 'var(--lcd)';
+}
+
+async function loadIntoForm(dateStr){
+  statusMsg.textContent = '讀取中…';
+  statusMsg.className = 'status-msg';
+  let entry = null;
+  try{
+    entry = await runGS('getEntry', dateStr);
+  }catch(e){
+    statusMsg.textContent = '讀取失敗，請重新整理頁面';
+    statusMsg.className = 'status-msg error';
+  }
+  paymentInput.value = entry ? entry.payment : '';
+  qtyEstInput.value = entry ? (entry.qtyEst || 0) : 0;
+  staffCountInput.value = entry ? (entry.staffCount || 0) : 0;
+  staffWageInput.value = entry ? entry.staffWage : '';
+  revenueInput.value = entry ? entry.revenue : '';
+  updateAll();
+  ticketNo.textContent = 'NO. ' + dateStr.replace(/-/g,'');
+  if(!statusMsg.classList.contains('error')) statusMsg.textContent = '';
+}
+
+dateInput.addEventListener('change', () => {
+  const d = parseDateStr(dateInput.value);
+  monthOffset = (d.getFullYear() - new Date().getFullYear()) * 12 + (d.getMonth() - new Date().getMonth());
+  loadIntoForm(dateInput.value);
+  renderWeek();
+});
+
+submitBtn.addEventListener('click', async () => {
+  const dateStr = dateInput.value || todayStr();
+  const entry = {
+    date: dateStr,
+    payment: Number(paymentInput.value) || 0,
+    qtyEst: Number(qtyEstInput.value) || 0,
+    revenue: Number(revenueInput.value) || 0,
+    staffCount: Number(staffCountInput.value) || 0,
+    staffWage: Number(staffWageInput.value) || 0,
+  };
+  submitBtn.disabled = true;
+  statusMsg.textContent = '儲存中…';
+  statusMsg.className = 'status-msg';
+  try{
+    await runGS('saveEntry', entry);
+    statusMsg.textContent = `已儲存 ${dateStr} 的記錄，並同步到 Google 試算表 ✅`;
+    await Promise.all([renderWeek(), refreshCapital()]);
+  }catch(e){
+    statusMsg.textContent = '儲存失敗，請再試一次';
+    statusMsg.className = 'status-msg error';
+  }
+  submitBtn.disabled = false;
+});
+
+// ---- 第三層：月報表 ----
+const weekBody = document.getElementById('week-body');
+const weekRangeEl = document.getElementById('week-range');
+
+async function renderWeek(){
+  const base = new Date();
+  base.setMonth(base.getMonth() + monthOffset);
+  const monthStart = getMonthStart(base);
+  const monthEnd = getMonthEnd(base);
+  weekRangeEl.textContent = `${monthStart.getFullYear()}年${monthStart.getMonth()+1}月`;
+
+  const dateStrs = [];
+  const totalDays = monthEnd.getDate(); // 這個月總共幾天
+  for(let i=0;i<totalDays;i++){
+    const d = new Date(monthStart);
+    d.setDate(d.getDate()+i);
+    dateStrs.push(toDateStr(d));
+  }
+
+  weekBody.innerHTML = `<tr><td colspan="7" class="loading-note">讀取中…</td></tr>`;
+
+  let entriesByDate = {};
+  try{
+    entriesByDate = await runGS('getWeekEntries', dateStrs);
+  }catch(e){
+    weekBody.innerHTML = `<tr><td colspan="7" class="loading-note">讀取失敗，請重新整理頁面</td></tr>`;
+    return;
+  }
+
+  const todayS = todayStr();
+  weekBody.innerHTML = '';
+  let sumQty=0, sumRev=0, sumLabor=0, sumPayment=0, sumProfit=0;
+  let weekEndCapital = 0;
+
+  dateStrs.forEach(dStr => {
+    const d = parseDateStr(dStr);
+    const rec = entriesByDate[dStr]; // 一定會有物件（capital 一定有值），只是 hasEntry 可能是 false
+    const entry = rec && rec.hasEntry;
+    const dow = d.getDay(); // 0=日 1=一 2=二 ...
+    const isClosedDay = !entry && (dow === 1 || dow === 2); // 週一二公休
+    const platformProfit = (!entry && rec && rec.platformProfit !== null && rec.platformProfit !== undefined)
+      ? Number(rec.platformProfit) : null;
+    const platformRevenue = (!entry && rec && rec.platformRevenue !== null && rec.platformRevenue !== undefined)
+      ? Number(rec.platformRevenue) : null;
+
+    const tr = document.createElement('tr');
+    if(dStr === todayS) tr.classList.add('today');
+    if(!entry) tr.classList.add(isClosedDay ? 'closed-row' : 'empty-row');
+
+    const qty = entry ? (Number(rec.totalQty)||0) : 0;
+    const rev = entry ? (Number(rec.totalRevenue)||0) : 0;
+    const labor = entry ? (Number(rec.laborCost)||0) : 0;
+    const payment = entry ? (Number(rec.payment)||0) : 0;
+    const profit = entry ? (Number(rec.netProfit)||0) : 0;
+    const capital = rec ? (Number(rec.capital)||0) : 0;
+
+    if(entry){ sumQty+=qty; sumRev+=rev; sumLabor+=labor; sumPayment+=payment; sumProfit+=profit; }
+    if(platformProfit !== null){ sumProfit += platformProfit; }
+    if(platformRevenue !== null){ sumRev += platformRevenue; }
+    weekEndCapital = capital; // 一路往後蓋過去，最後留下的就是這個月最後一天的餘額
+
+    const profitClass = entry ? (profit < 0 ? 'profit-neg' : 'profit-pos')
+      : (platformProfit !== null ? (platformProfit < 0 ? 'profit-neg' : 'profit-pos') : '');
+    const blank = isClosedDay ? '店休' : '—';
+    // 淨利欄位：有店內記錄就顯示店內淨利；沒有的話，若那天剛好掛了平台淨利挹注就顯示平台淨利；否則顯示店休/—
+    const profitCellText = entry ? fmtMoney(profit)
+      : (platformProfit !== null ? fmtMoney(platformProfit) + '（平台）' : blank);
+    // 營業額欄位：同樣邏輯，沒有店內記錄但那天有平台挹注，就顯示平台銷售額
+    const revenueCellText = entry ? fmtMoney(rev)
+      : (platformRevenue !== null ? fmtMoney(platformRevenue) + '（平台）' : blank);
+
+    tr.innerHTML = `
+      <td class="day-label">${d.getDate()}<span class="wd">(${WEEKDAY_ZH[dow]})</span></td>
+      <td>${entry ? qty : blank}</td>
+      <td>${revenueCellText}</td>
+      <td>${entry ? fmtMoney(labor) : blank}</td>
+      <td>${entry ? fmtMoney(payment) : blank}</td>
+      <td class="${profitClass}">${profitCellText}</td>
+      <td>${fmtMoney(capital)}</td>
+    `;
+    weekBody.appendChild(tr);
+  });
+
+  document.getElementById('sum-qty').textContent = sumQty;
+  document.getElementById('sum-rev').textContent = fmtMoney(sumRev);
+  document.getElementById('sum-labor').textContent = fmtMoney(sumLabor);
+  document.getElementById('sum-payment').textContent = fmtMoney(sumPayment);
+  document.getElementById('sum-profit').textContent = fmtMoney(sumProfit);
+  document.getElementById('week-end-capital').textContent = fmtMoney(weekEndCapital);
+}
+
+document.getElementById('prev-week').addEventListener('click', () => { monthOffset--; renderWeek(); });
+document.getElementById('next-week').addEventListener('click', () => { monthOffset++; renderWeek(); });
+document.getElementById('this-week').addEventListener('click', () => { monthOffset=0; renderWeek(); });
+
+async function refreshSheetLink(){
+  try{
+    const url = await runGS('getSpreadsheetUrl');
+    document.getElementById('open-sheet-btn').href = url;
+  }catch(e){ /* 忽略 */ }
+}
+
+async function refreshCapital(){
+  try{
+    const capital = await runGS('getLatestCapital');
+    document.getElementById('capital-value').textContent = fmtMoney(capital);
+  }catch(e){
+    document.getElementById('capital-value').textContent = '讀取失敗';
+  }
+}
+
+const refreshReportsBtn = document.getElementById('refresh-reports-btn');
+const reportsStatus = document.getElementById('reports-status');
+refreshReportsBtn.addEventListener('click', async () => {
+  refreshReportsBtn.disabled = true;
+  reportsStatus.textContent = '報表整理中，第一次執行可能要等 10~20 秒…';
+  reportsStatus.className = 'status-msg';
+  try{
+    await runGS('refreshAllReports');
+    reportsStatus.textContent = '週報表／月報表已更新完成 ✅';
+  }catch(e){
+    reportsStatus.textContent = '整理失敗：' + (e && e.message ? e.message : '請再試一次');
+    reportsStatus.className = 'status-msg error';
+  }
+  refreshReportsBtn.disabled = false;
+});
+
+// ---- 外送平台結算（每半月一次） ----
+const platformStartDate = document.getElementById('platform-start-date');
+const platformEndDate = document.getElementById('platform-end-date');
+const platformSales = document.getElementById('platform-sales');
+const platformServiceFee = document.getElementById('platform-service-fee');
+const platformMarketingFee = document.getElementById('platform-marketing-fee');
+const platformStatusMsg = document.getElementById('platform-status-msg');
+const platformTicketNo = document.getElementById('platform-ticket-no');
+const platformSubmitBtn = document.getElementById('platform-submit-btn');
+const platformHistoryBody = document.getElementById('platform-history-body');
+
+function updatePlatformCalc(){
+  const expense = (Number(platformServiceFee.value)||0) + (Number(platformMarketingFee.value)||0);
+  const profit = (Number(platformSales.value)||0) - expense;
+  document.getElementById('platform-calc-expense').textContent = fmtMoney(expense);
+  const profitEl = document.getElementById('platform-calc-profit');
+  profitEl.textContent = fmtMoney(profit);
+  profitEl.style.color = profit < 0 ? 'var(--chili)' : 'var(--lcd)';
+}
+[platformSales, platformServiceFee, platformMarketingFee].forEach(el => {
+  el.addEventListener('input', () => {
+    if(Number(el.value) < 0) el.value = 0;
+    updatePlatformCalc();
+  });
+});
+
+// 選起日時，若沒填迄日就自動帶出「起日+14天」當預設值（半個月）
+platformStartDate.addEventListener('change', async () => {
+  if(!platformEndDate.value && platformStartDate.value){
+    const d = parseDateStr(platformStartDate.value);
+    d.setDate(d.getDate()+14);
+    platformEndDate.value = toDateStr(d);
+  }
+  await loadPlatformEntryIntoForm(platformStartDate.value);
+});
+
+async function loadPlatformEntryIntoForm(startDateStr){
+  if(!startDateStr) return;
+  let entry = null;
+  try{
+    entry = await runGS('getPlatformEntry', startDateStr);
+  }catch(e){ /* 忽略，視為沒有資料 */ }
+  if(entry){
+    platformEndDate.value = entry.endDate;
+    platformSales.value = entry.sales;
+    platformServiceFee.value = entry.serviceFee;
+    platformMarketingFee.value = entry.marketingFee;
+    platformTicketNo.textContent = 'NO. ' + startDateStr.replace(/-/g,'');
+  } else {
+    platformSales.value = '';
+    platformServiceFee.value = '';
+    platformMarketingFee.value = '';
+    platformTicketNo.textContent = 'NO. ------';
+  }
+  updatePlatformCalc();
+}
+
+platformSubmitBtn.addEventListener('click', async () => {
+  if(!platformStartDate.value || !platformEndDate.value){
+    platformStatusMsg.textContent = '請先選擇結算起日與迄日';
+    platformStatusMsg.className = 'status-msg error';
+    return;
+  }
+  const entry = {
+    startDate: platformStartDate.value,
+    endDate: platformEndDate.value,
+    sales: Number(platformSales.value) || 0,
+    serviceFee: Number(platformServiceFee.value) || 0,
+    marketingFee: Number(platformMarketingFee.value) || 0,
+  };
+  platformSubmitBtn.disabled = true;
+  platformStatusMsg.textContent = '儲存中…';
+  platformStatusMsg.className = 'status-msg';
+  try{
+    await runGS('savePlatformEntry', entry);
+    platformStatusMsg.textContent = `已儲存 ${entry.startDate} ~ ${entry.endDate} 的平台結算 ✅`;
+    await loadPlatformHistory();
+  }catch(e){
+    platformStatusMsg.textContent = '儲存失敗，請再試一次';
+    platformStatusMsg.className = 'status-msg error';
+  }
+  platformSubmitBtn.disabled = false;
+});
+
+async function loadPlatformHistory(){
+  platformHistoryBody.innerHTML = `<tr><td colspan="6" class="loading-note">讀取中…</td></tr>`;
+  let entries = [];
+  try{
+    entries = await runGS('getRecentPlatformEntries', 8);
+  }catch(e){
+    platformHistoryBody.innerHTML = `<tr><td colspan="6" class="loading-note">讀取失敗，請重新整理頁面</td></tr>`;
+    return;
+  }
+  if(entries.length === 0){
+    platformHistoryBody.innerHTML = `<tr><td colspan="6" class="loading-note">目前還沒有結算紀錄</td></tr>`;
+    return;
+  }
+  platformHistoryBody.innerHTML = '';
+  entries.forEach(e => {
+    const tr = document.createElement('tr');
+    const profitClass = (Number(e.netProfit)||0) < 0 ? 'profit-neg' : 'profit-pos';
+    tr.innerHTML = `
+      <td class="day-label">${e.startDate} ~ ${e.endDate}</td>
+      <td>${fmtMoney(e.sales)}</td>
+      <td>${fmtMoney(e.serviceFee)}</td>
+      <td>${fmtMoney(e.marketingFee)}</td>
+      <td>${fmtMoney(e.totalExpense)}</td>
+      <td class="${profitClass}">${fmtMoney(e.netProfit)}</td>
+    `;
+    platformHistoryBody.appendChild(tr);
+  });
+}
+
+(async function init(){
+  try{
+    CONFIG = await runGS('getConfig');
+  }catch(e){ /* 使用預設值 */ }
+  document.getElementById('calc-cost-rate').textContent = Math.round(CONFIG.costRate * 100);
+
+  dateInput.value = todayStr();
+  await loadIntoForm(todayStr());
+  await renderWeek();
+  refreshSheetLink();
+  refreshCapital();
+  await loadPlatformHistory();
+})();
+</script>
+</body>
+</html>
