@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700;900&family=Noto+Sans+TC:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --broth:#241b16;
+    --broth-2:#332521;
+    --paper:#fbf6ec;
+    --paper-2:#f2ead9;
+    --ink:#2b2420;
+    --chili:#a6402d;
+    --chili-dark:#7e2f21;
+    --scallion:#5b7b54;
+    --lcd:#f2b705;
+    --line:#d8cbb2;
+    --platform:#5b6f8a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--broth); color:var(--ink);
+    font-family:'Noto Sans TC', sans-serif; min-height:100vh; padding:0 14px 60px;
+  }
+  .page{max-width:680px;margin:0 auto;transition:max-width 0.15s ease;}
+  @media (min-width:760px){ .page{ max-width:960px; } }
+
+  .top-nav{ display:flex; justify-content:center; padding-top:16px; }
+  .top-nav a{
+    font-family:'Noto Sans TC', sans-serif; font-size:12px; font-weight:700;
+    color:var(--lcd); border:1px solid var(--lcd); border-radius:20px;
+    padding:7px 14px; text-decoration:none;
+  }
+  .top-nav a:hover{ background:rgba(242,183,5,0.12); }
+
+  .masthead{ text-align:center; color:var(--paper); margin:16px 0 14px; }
+  .masthead .eyebrow{
+    font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.3em;
+    color:var(--lcd); text-transform:uppercase; display:block; margin-bottom:6px;
+  }
+  .masthead h1{ font-family:'Noto Serif TC', serif; font-weight:900; font-size:26px; margin:0; letter-spacing:0.06em; }
+  .masthead p{ font-size:11.5px; color:#cbbfa8; margin:6px 0 0; line-height:1.6; }
+
+  /* ---- 頁籤切換：預留最上方空間 ---- */
+  .tab-switch{
+    display:flex; gap:6px; margin:18px 0 16px; background:var(--broth-2);
+    border-radius:10px; padding:5px; position:sticky; top:0; z-index:10;
+    box-shadow:0 6px 16px rgba(0,0,0,0.35);
+  }
+  .tab-btn{
+    flex:1; padding:10px 8px; border:none; border-radius:7px; cursor:pointer;
+    font-family:'Noto Sans TC', sans-serif; font-size:13px; font-weight:700;
+    background:transparent; color:#cbbfa8; transition:all 0.15s ease;
+  }
+  .tab-btn.active{ background:var(--chili); color:#fff; }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .card{
+    background:var(--paper); border-radius:8px; padding:18px 16px;
+    box-shadow:0 12px 30px rgba(0,0,0,0.3); margin-bottom:20px;
+  }
+  .card h2{ font-family:'Noto Serif TC', serif; font-size:16px; margin:0 0 4px; }
+  .card h3{ font-family:'Noto Serif TC', serif; font-size:14.5px; margin:18px 0 8px; color:var(--chili); }
+  .card .sub{ font-size:11px; color:#8a7b68; margin-bottom:12px; line-height:1.6; }
+
+  .nav-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+  .nav-row .range-label{ font-family:'Space Mono', monospace; font-size:11.5px; color:#8a7b68; }
+  .nav-btns{ display:flex; gap:6px; }
+  .nav-btns button{
+    font-family:'Space Mono', monospace; font-size:12px; border:1px solid var(--line);
+    background:#fff; border-radius:4px; padding:6px 10px; cursor:pointer; color:var(--ink);
+  }
+  .nav-btns button:hover{ background:var(--paper-2); }
+
+  .table-scroll{ overflow-x:auto; margin:0 -2px; }
+  table{ width:100%; min-width:520px; border-collapse:collapse; font-size:12.5px; }
+  th, td{ padding:8px 6px; text-align:center; border-bottom:1px solid var(--line); font-family:'Space Mono', monospace; white-space:nowrap; }
+  th{ font-family:'Noto Sans TC', sans-serif; font-weight:700; font-size:11px; color:#6b5f52; border-bottom:2px solid var(--ink); }
+  td.row-label{ font-family:'Noto Sans TC', sans-serif; text-align:left; font-weight:500; }
+  tr.today td{ background:rgba(166,64,45,0.06); }
+  tr.closed-row td{ color:#a08a6a; font-style:italic; }
+  td.neg{ color:var(--chili); font-weight:700; }
+  td.pos{ color:var(--scallion); font-weight:700; }
+  tfoot td{ font-weight:700; border-top:2px solid var(--ink); border-bottom:none; background:var(--paper-2); }
+  .loading-note{ text-align:center; font-size:12px; color:#8a7b68; padding:14px; }
+
+  /* ---- 月報表：設定小工具 ---- */
+  .setting-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    background:var(--broth); border-radius:6px; padding:10px 14px; margin-bottom:10px;
+  }
+  .setting-row label{ color:var(--paper); font-size:12.5px; font-weight:700; }
+  .setting-row .controls{ display:flex; align-items:center; gap:8px; }
+  .setting-row input{
+    width:100px; font-family:'Space Mono', monospace; font-size:14px; text-align:right;
+    padding:6px 8px; border:1px solid var(--lcd); border-radius:4px; background:#fff; color:var(--ink);
+  }
+  .setting-row button{
+    font-family:'Noto Sans TC', sans-serif; font-size:12px; font-weight:700; color:#fff;
+    background:var(--chili); border:none; border-radius:4px; padding:7px 12px; cursor:pointer;
+  }
+  .setting-row button:hover{ background:var(--chili-dark); }
+  .setting-status{ font-size:10.5px; color:var(--lcd); min-height:14px; margin-bottom:6px; }
+
+  /* ---- 損益表試算卡片 ---- */
+  .pnl-block{ background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:12px; }
+  .pnl-line{ display:flex; justify-content:space-between; font-family:'Space Mono', monospace; font-size:13px; padding:4px 0; }
+  .pnl-line .lbl{ font-family:'Noto Sans TC', sans-serif; color:#6b5f52; font-size:12px; }
+  .pnl-line.sum{ border-top:2px dashed var(--line); margin-top:6px; padding-top:8px; font-weight:700; }
+  .pnl-total{
+    background:var(--broth-2); border-radius:6px; padding:12px 14px; text-align:center; margin-top:8px;
+  }
+  .pnl-total .lbl{ font-size:11px; color:#a8977d; letter-spacing:0.1em; display:block; margin-bottom:4px; }
+  .pnl-total .val{ font-family:'Space Mono', monospace; font-size:24px; color:var(--lcd); }
+
+  .summary-strip{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:4px; }
+  .summary-chip{ flex:1; min-width:130px; background:var(--broth-2); border-radius:6px; padding:10px 12px; }
+  .summary-chip .sc-label{ font-size:10.5px; color:#a8977d; letter-spacing:0.06em; display:block; margin-bottom:3px; }
+  .summary-chip .sc-value{ font-family:'Space Mono', monospace; font-size:17px; color:var(--lcd); }
+
+  .chart-wrap{ background:#fff; border:1px solid var(--line); border-radius:6px; padding:12px; margin-bottom:16px; }
+  .chart-wrap svg{ display:block; }
+  .owner-nav{
+    display:flex; gap:6px; justify-content:center; flex-wrap:wrap;
+    padding:10px 8px 0;
+  }
+  .owner-nav a{
+    font-family:'Noto Sans TC', sans-serif; font-size:11.5px; font-weight:700;
+    color:var(--lcd); border:1px solid var(--lcd); border-radius:20px;
+    padding:6px 13px; text-decoration:none;
+  }
+  .owner-nav a:hover{ background:rgba(242,183,5,0.1); }
+  .owner-nav a.active{ background:var(--lcd); color:var(--broth); }
+</style>
+</head>
+<body>
+
+<nav class="owner-nav">
+  <a href="owner.html">🏠 總覽</a>
+  <a href="admin.html">📋 訂單看板</a>
+  <a href="daily-report.html">📊 鍋物日報</a>
+  <a href="finance.html" class="active">💰 財務報表</a>
+</nav>
+<div class="page">
+
+  
+
+  <div class="masthead">
+    <span class="eyebrow">Finance Ledger · 獨立財務報表</span>
+    <h1>鍋 物 財 務 報 表</h1>
+    <p>用實際現金流計算，跟鍋物日報登記頁的估算方式分開獨立</p>
+  </div>
+
+  <div class="tab-switch">
+    <button class="tab-btn active" data-tab="week">週報表</button>
+    <button class="tab-btn" data-tab="month">月報表</button>
+    <button class="tab-btn" data-tab="trend">月趨勢</button>
+  </div>
+
+  <!-- ============ 頁籤 1：週報表 ============ -->
+  <div id="tab-week" class="tab-panel active">
+    <div class="card">
+      <h2>週報表</h2>
+      <div class="sub">店內營業額／平台銷售額／貨款／人事（貨款、人事為支出，以紅字負數呈現）</div>
+
+      <div class="nav-row">
+        <div class="nav-btns">
+          <button id="w-prev">‹ 上週</button>
+          <button id="w-this">本週</button>
+          <button id="w-next">下週 ›</button>
+        </div>
+        <div class="range-label" id="w-range"></div>
+      </div>
+
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th style="text-align:left;">日期</th><th>店內營業額</th><th>平台銷售額</th><th>貨款</th><th>人事</th></tr>
+        </thead>
+        <tbody id="week-body"></tbody>
+        <tfoot>
+          <tr>
+            <td style="text-align:left;">週合計</td>
+            <td id="w-sum-store">$0</td>
+            <td id="w-sum-platform">$0</td>
+            <td id="w-sum-payment" class="neg">$0</td>
+            <td id="w-sum-labor" class="neg">$0</td>
+          </tr>
+        </tfoot>
+      </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 頁籤 2：月報表 ============ -->
+  <div id="tab-month" class="tab-panel">
+
+    <div class="card">
+      <h2>本月損益表試算</h2>
+      <div class="nav-row">
+        <div class="nav-btns">
+          <button id="m-prev">‹ 上月</button>
+          <button id="m-this">本月</button>
+          <button id="m-next">下月 ›</button>
+        </div>
+        <div class="range-label" id="month-nav-range"></div>
+      </div>
+      <div class="sub" id="month-label-1">−</div>
+
+      <div class="setting-row">
+        <label>本月租金</label>
+        <div class="controls">
+          <input type="number" id="rent-input" min="0" step="1" placeholder="0">
+          <button id="rent-save-btn">儲存</button>
+        </div>
+      </div>
+      <div class="setting-status" id="rent-status"></div>
+
+      <div class="setting-row">
+        <label>本月水電</label>
+        <div class="controls">
+          <input type="number" id="utility-input" min="0" step="1" placeholder="0">
+          <button id="utility-save-btn">儲存</button>
+        </div>
+      </div>
+      <div class="setting-status" id="utility-status"></div>
+
+      <div class="pnl-block">
+        <div class="pnl-line"><span class="lbl">店內營業額</span><span id="pnl-store-revenue">$0</span></div>
+        <div class="pnl-line"><span class="lbl">－ 人事</span><span id="pnl-store-labor" class="neg">$0</span></div>
+        <div class="pnl-line"><span class="lbl">－ 貨款</span><span id="pnl-store-payment" class="neg">$0</span></div>
+        <div class="pnl-line"><span class="lbl">－ 租金</span><span id="pnl-store-rent" class="neg">$0</span></div>
+        <div class="pnl-line"><span class="lbl">－ 水電</span><span id="pnl-store-utility" class="neg">$0</span></div>
+        <div class="pnl-line sum"><span class="lbl">＝ 店面淨利</span><span id="pnl-store-net">$0</span></div>
+      </div>
+
+      <div class="pnl-block">
+        <div class="pnl-line"><span class="lbl">平台銷售額</span><span id="pnl-platform-sales">$0</span></div>
+        <div class="pnl-line"><span class="lbl">－ 開支合計</span><span id="pnl-platform-expense" class="neg">$0</span></div>
+        <div class="pnl-line sum"><span class="lbl">＝ 平台淨利</span><span id="pnl-platform-net">$0</span></div>
+      </div>
+
+      <div class="pnl-total">
+        <span class="lbl">本月收益（店面淨利＋平台淨利）</span>
+        <span class="val" id="pnl-monthly-profit">$0</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>收入成本率</h2>
+      <div class="sub">收入＝店內營業額＋平台銷售額；成本(顯示金額)＝人事＋貨款＋租金＋水電＋平台開支合計；<br>成本率＝貨款 ÷（店內營業額＋平台淨利）× 100%</div>
+      <div class="summary-strip">
+        <div class="summary-chip"><span class="sc-label">收入</span><span class="sc-value" id="ratio-income">$0</span></div>
+        <div class="summary-chip"><span class="sc-label">成本</span><span class="sc-value" id="ratio-cost">$0</span></div>
+        <div class="summary-chip"><span class="sc-label">收入成本率</span><span class="sc-value" id="ratio-pct">0%</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>店面資本</h2>
+      <div class="sub">店面資本(本月變動) = 本月收益 － 老闆薪資；逐月累加成累計店面資本</div>
+
+      <div class="setting-row">
+        <label>老闆薪資（全域設定）</label>
+        <div class="controls">
+          <input type="number" id="owner-draw-input" min="0" step="1" placeholder="70000">
+          <button id="owner-draw-save-btn">儲存</button>
+        </div>
+      </div>
+      <div class="setting-status" id="owner-draw-status"></div>
+
+      <div class="summary-strip">
+        <div class="summary-chip"><span class="sc-label">本月資本變動</span><span class="sc-value" id="capital-delta">$0</span></div>
+        <div class="summary-chip"><span class="sc-label">累計店面資本</span><span class="sc-value" id="capital-cumulative">$0</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>逐月歷史紀錄</h2>
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left;">月份</th><th>店內營業額</th><th>平台銷售額</th><th>人事</th><th>貨款</th>
+            <th>租金</th><th>水電</th><th>店面淨利</th><th>平台淨利</th><th>本月收益</th>
+            <th>成本率</th><th>老闆薪資</th><th>資本變動</th><th>累計資本</th>
+          </tr>
+        </thead>
+        <tbody id="month-history-body"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 頁籤 3：月趨勢 ============ -->
+  <div id="tab-trend" class="tab-panel">
+    <div class="card">
+      <h2>本月收益趨勢</h2>
+      <div class="sub">實線＝每月收益，虛線＝3個月移動平均（平滑短期波動）</div>
+      <div class="chart-wrap"><div id="chart-profit-trend"></div></div>
+    </div>
+
+    <div class="card">
+      <h2>店面資本累計成長曲線</h2>
+      <div class="chart-wrap"><div id="chart-capital-trend"></div></div>
+    </div>
+
+    <div class="card">
+      <h2>收入成本率趨勢</h2>
+      <div class="sub">成本率＝貨款÷（店內營業額＋平台淨利）；虛線為警戒線（60%），超過代表貨款占比偏高</div>
+      <div class="chart-wrap"><div id="chart-ratio-trend"></div></div>
+    </div>
+
+    <div class="card">
+      <h2>店內 vs 平台 營收佔比</h2>
+      <div class="sub">每月營收來源比例，觀察通路佔比變化</div>
+      <div class="chart-wrap"><div id="chart-channel-mix"></div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwkOJlJvOwW9eZduOLcx5UW7hOWsrvtIpGzg7Us4pT3xWOw4YFbSg8n9F5IAFOg9qoc6Q/exec';
+async function runGS(fnName, ...args) {
+  const res = await fetch(BACKEND_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: fnName, args: args }),
+  });
+  const data = await res.json();
+  if (!data || data.ok === false) throw new Error((data && data.error) || '後端回應失敗');
+  return data.data;
+}
+function pad(n){ return n.toString().padStart(2,'0'); }
+function toDateStr(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function parseDateStr(s){ const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+function fmtMoney(n){ return '$' + Math.ceil(Number(n||0)).toLocaleString('zh-TW'); }
+function fmtNeg(n){ const v = Math.ceil(Number(n||0)); return (v<0?'-':'') + '$' + Math.abs(v).toLocaleString('zh-TW'); }
+const WEEKDAY_ZH = ['日','一','二','三','四','五','六'];
+
+function getWeekStart(date){
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1) - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+// ---- 頁籤切換 ----
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ============================================================
+// 輕量 SVG 圖表工具（不依賴外部函式庫）
+// ============================================================
+function svgEl(tag, attrs){
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for(const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+function clearChart(containerId){
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  return el;
+}
+function addLegend(container, items){
+  const legend = document.createElement('div');
+  legend.style.cssText = 'display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:8px;font-size:11px;font-family:"Noto Sans TC",sans-serif;color:var(--ink);';
+  items.forEach(it => {
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:5px;';
+    item.innerHTML = `<span style="width:10px;height:10px;border-radius:2px;background:${it.color};display:inline-block;"></span>${it.name}`;
+    legend.appendChild(item);
+  });
+  container.appendChild(legend);
+}
+
+/**
+ * 長條圖(可多系列並排)＋可疊加折線＋可選一條水平警戒線。y軸自動含負值。
+ * barSeries: [{name,color,data}]；lineSeries: {name,color,data,dashed} 或 null
+ * opts: { thresholdY, thresholdLabel }
+ */
+function renderComboChart(containerId, categories, barSeries, lineSeries, opts){
+  opts = opts || {};
+  const container = clearChart(containerId);
+  const width = Math.max(container.clientWidth || 560, 280);
+  const height = 260;
+  const padL = 52, padR = 14, padT = 16, padB = 34;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+
+  let allVals = [0];
+  barSeries.forEach(s => { allVals = allVals.concat(s.data); });
+  if(lineSeries) allVals = allVals.concat(lineSeries.data);
+  if(opts.thresholdY !== undefined) allVals.push(opts.thresholdY);
+  let maxV = Math.max(...allVals);
+  let minV = Math.min(...allVals);
+  if(maxV === minV){ maxV += 1; }
+  const range = maxV - minV;
+  const yScale = v => padT + plotH - ((v - minV) / range) * plotH;
+  const zeroY = yScale(0);
+
+  const svg = svgEl('svg', {viewBox:`0 0 ${width} ${height}`, width:'100%', height:height});
+
+  const ticks = 4;
+  for(let i=0;i<=ticks;i++){
+    const v = minV + (range*i/ticks);
+    const y = yScale(v);
+    svg.appendChild(svgEl('line', {x1:padL,x2:width-padR,y1:y,y2:y,stroke:'#e4d9c2','stroke-width':1}));
+    const t = svgEl('text', {x:padL-6, y:y+3, 'text-anchor':'end','font-size':9, fill:'#8a7b68', 'font-family':'Space Mono, monospace'});
+    t.textContent = Math.round(v).toLocaleString('zh-TW');
+    svg.appendChild(t);
+  }
+  svg.appendChild(svgEl('line', {x1:padL,x2:width-padR,y1:zeroY,y2:zeroY,stroke:'#2b2420','stroke-width':1.2}));
+
+  if(opts.thresholdY !== undefined){
+    const ty = yScale(opts.thresholdY);
+    const thLine = svgEl('line', {x1:padL,x2:width-padR,y1:ty,y2:ty,stroke:'#a6402d','stroke-width':1.5,'stroke-dasharray':'5,4'});
+    svg.appendChild(thLine);
+    const thLabel = svgEl('text', {x:width-padR, y:ty-4, 'text-anchor':'end','font-size':9.5, fill:'#a6402d','font-family':'"Noto Sans TC",sans-serif','font-weight':'700'});
+    thLabel.textContent = opts.thresholdLabel || '警戒線';
+    svg.appendChild(thLabel);
+  }
+
+  const n = Math.max(categories.length, 1);
+  const groupW = plotW / n;
+  const barCount = Math.max(barSeries.length, 1);
+  const barGap = 3;
+  const barW = barSeries.length ? Math.max(4, (groupW - 10) / barCount - barGap) : 0;
+
+  categories.forEach((cat, i) => {
+    const groupX = padL + i*groupW;
+    barSeries.forEach((s, si) => {
+      const v = s.data[i]||0;
+      const x = groupX + 5 + si*(barW+barGap);
+      const y0 = zeroY, y1 = yScale(v);
+      const y = Math.min(y0,y1), h = Math.max(Math.abs(y1-y0), 0.5);
+      const rect = svgEl('rect', {x, y, width:barW, height:h, fill:s.color, rx:2});
+      const title = svgEl('title', {});
+      title.textContent = `${s.name} ${cat}：${Math.round(v).toLocaleString('zh-TW')}`;
+      rect.appendChild(title);
+      svg.appendChild(rect);
+    });
+    const lx = groupX + groupW/2;
+    const lbl = svgEl('text', {x:lx, y:height-padB+16, 'text-anchor':'middle','font-size':9, fill:'#6b5f52', 'font-family':'"Noto Sans TC",sans-serif'});
+    lbl.textContent = cat;
+    svg.appendChild(lbl);
+  });
+
+  if(lineSeries && categories.length){
+    let path = '';
+    categories.forEach((cat,i)=>{
+      const x = padL + i*groupW + groupW/2;
+      const y = yScale(lineSeries.data[i]||0);
+      path += (i===0?'M':'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    });
+    const lineAttrs = {d:path.trim(), fill:'none', stroke:lineSeries.color, 'stroke-width':2};
+    if(lineSeries.dashed) lineAttrs['stroke-dasharray'] = '6,4';
+    svg.appendChild(svgEl('path', lineAttrs));
+    categories.forEach((cat,i)=>{
+      const x = padL + i*groupW + groupW/2;
+      const y = yScale(lineSeries.data[i]||0);
+      const c = svgEl('circle', {cx:x, cy:y, r:3, fill:lineSeries.color});
+      const title = svgEl('title', {});
+      title.textContent = `${lineSeries.name} ${cat}：${Math.round(lineSeries.data[i]).toLocaleString('zh-TW')}`;
+      c.appendChild(title);
+      svg.appendChild(c);
+    });
+  }
+
+  container.appendChild(svg);
+  const legendItems = barSeries.map(s => ({name:s.name, color:s.color}));
+  if(lineSeries) legendItems.push({name:lineSeries.name, color:lineSeries.color});
+  addLegend(container, legendItems);
+}
+
+/** 折線圖（可疊多條線），複用 renderComboChart 但不帶長條 */
+function renderMultiLineChart(containerId, categories, lineSeriesArr, opts){
+  const container = document.getElementById(containerId);
+  renderComboChart(containerId, categories, [], lineSeriesArr[0], opts);
+  // 疊加剩下的線（renderComboChart 目前只支援一條主線，這裡手動再畫剩下的線）
+  if(lineSeriesArr.length > 1){
+    const svg = container.querySelector('svg');
+    if(!svg) return;
+    const width = svg.viewBox.baseVal.width, height = svg.viewBox.baseVal.height;
+    const padL = 52, padR = 14, padT = 16, padB = 34;
+    const plotW = width - padL - padR, plotH = height - padT - padB;
+
+    let allVals = [0];
+    lineSeriesArr.forEach(s => { allVals = allVals.concat(s.data); });
+    if(opts && opts.thresholdY !== undefined) allVals.push(opts.thresholdY);
+    let maxV = Math.max(...allVals), minV = Math.min(...allVals);
+    if(maxV === minV) maxV += 1;
+    const range = maxV - minV;
+    const yScale = v => padT + plotH - ((v - minV) / range) * plotH;
+    const n = Math.max(categories.length, 1);
+    const groupW = plotW / n;
+
+    for(let li=1; li<lineSeriesArr.length; li++){
+      const s = lineSeriesArr[li];
+      let path = '';
+      categories.forEach((cat,i)=>{
+        const x = padL + i*groupW + groupW/2;
+        const y = yScale(s.data[i]||0);
+        path += (i===0?'M':'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+      });
+      const attrs = {d:path.trim(), fill:'none', stroke:s.color, 'stroke-width':2};
+      if(s.dashed) attrs['stroke-dasharray'] = '6,4';
+      svg.appendChild(svgEl('path', attrs));
+      categories.forEach((cat,i)=>{
+        const x = padL + i*groupW + groupW/2;
+        const y = yScale(s.data[i]||0);
+        const c = svgEl('circle', {cx:x, cy:y, r:3, fill:s.color});
+        const title = svgEl('title', {});
+        title.textContent = `${s.name} ${cat}：${Math.round(s.data[i]).toLocaleString('zh-TW')}`;
+        c.appendChild(title);
+        svg.appendChild(c);
+      });
+    }
+    // 重新加圖例（含所有線）
+    const oldLegend = container.querySelector('div');
+    if(oldLegend) oldLegend.remove();
+    addLegend(container, lineSeriesArr.map(s=>({name:s.name, color:s.color})));
+  }
+}
+
+/** 100% 堆疊長條圖，用來看每月營收來源佔比 */
+function renderStackedBarChart(containerId, categories, series){
+  const container = clearChart(containerId);
+  const width = Math.max(container.clientWidth || 560, 280);
+  const height = 260;
+  const padL = 40, padR = 14, padT = 16, padB = 34;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+
+  const svg = svgEl('svg', {viewBox:`0 0 ${width} ${height}`, width:'100%', height:height});
+
+  for(let i=0;i<=4;i++){
+    const y = padT + plotH - (plotH*i/4);
+    svg.appendChild(svgEl('line', {x1:padL,x2:width-padR,y1:y,y2:y,stroke:'#e4d9c2','stroke-width':1}));
+    const t = svgEl('text', {x:padL-6, y:y+3, 'text-anchor':'end','font-size':9, fill:'#8a7b68','font-family':'Space Mono, monospace'});
+    t.textContent = (i*25) + '%';
+    svg.appendChild(t);
+  }
+
+  const n = Math.max(categories.length, 1);
+  const groupW = plotW / n;
+  const barW = Math.max(10, groupW * 0.5);
+
+  categories.forEach((cat, i) => {
+    const total = series.reduce((sum, s) => sum + (s.data[i]||0), 0);
+    let yCursor = padT + plotH;
+    const x = padL + i*groupW + (groupW-barW)/2;
+    series.forEach(s => {
+      const v = s.data[i] || 0;
+      const frac = total > 0 ? v/total : 0;
+      const h = frac * plotH;
+      const y = yCursor - h;
+      const rect = svgEl('rect', {x, y, width:barW, height:Math.max(h,0.5), fill:s.color, rx:2});
+      const title = svgEl('title', {});
+      const pct = total>0 ? (frac*100).toFixed(1) : '0.0';
+      title.textContent = `${s.name} ${cat}：${Math.round(v).toLocaleString('zh-TW')}（${pct}%）`;
+      rect.appendChild(title);
+      svg.appendChild(rect);
+      yCursor = y;
+    });
+    const lbl = svgEl('text', {x:x+barW/2, y:height-padB+16, 'text-anchor':'middle','font-size':9, fill:'#6b5f52','font-family':'"Noto Sans TC",sans-serif'});
+    lbl.textContent = cat;
+    svg.appendChild(lbl);
+  });
+
+  container.appendChild(svg);
+  addLegend(container, series.map(s=>({name:s.name, color:s.color})));
+}
+
+// ============================================================
+// 頁籤 1：週報表
+// ============================================================
+let weekOffset = 0;
+
+async function renderWeekly(){
+  const base = new Date();
+  base.setDate(base.getDate() + weekOffset*7);
+  const weekStart = getWeekStart(base);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate()+6);
+  document.getElementById('w-range').textContent = `${toDateStr(weekStart)} ～ ${toDateStr(weekEnd)}`;
+
+  const dateStrs = [];
+  for(let i=0;i<7;i++){
+    const d = new Date(weekStart);
+    d.setDate(d.getDate()+i);
+    dateStrs.push(toDateStr(d));
+  }
+
+  const body = document.getElementById('week-body');
+  body.innerHTML = `<tr><td colspan="5" class="loading-note">讀取中…</td></tr>`;
+
+  let data = {};
+  try{
+    data = await runGS('getWeeklyLedgerReport', dateStrs);
+  }catch(e){
+    body.innerHTML = `<tr><td colspan="5" class="loading-note">讀取失敗</td></tr>`;
+    return;
+  }
+
+  const todayS = toDateStr(new Date());
+  body.innerHTML = '';
+  let sumStore=0, sumPlatform=0, sumPayment=0, sumLabor=0;
+
+  dateStrs.forEach(dStr => {
+    const d = parseDateStr(dStr);
+    const dow = d.getDay();
+    const rec = data[dStr] || { hasStoreEntry:false, hasPlatformEntry:false, storeRevenue:0, payment:0, labor:0, platformRevenue:0 };
+    const isClosedDay = !rec.hasStoreEntry && (dow === 1 || dow === 2);
+    const blank = isClosedDay ? '店休' : '—';
+
+    if(rec.hasStoreEntry){ sumStore += rec.storeRevenue; sumPayment += rec.payment; sumLabor += rec.labor; }
+    if(rec.hasPlatformEntry){ sumPlatform += rec.platformRevenue; }
+
+    const tr = document.createElement('tr');
+    if(dStr === todayS) tr.classList.add('today');
+    if(!rec.hasStoreEntry && !rec.hasPlatformEntry) tr.classList.add(isClosedDay ? 'closed-row' : 'empty-row');
+
+    const storeCell = rec.hasStoreEntry ? fmtMoney(rec.storeRevenue) : blank;
+    const platformCell = rec.hasPlatformEntry ? (fmtMoney(rec.platformRevenue) + '（平台）') : (rec.hasStoreEntry ? '—' : blank);
+    const paymentCell = rec.hasStoreEntry ? fmtNeg(-Math.abs(rec.payment)) : blank;
+    const laborCell = rec.hasStoreEntry ? fmtNeg(-Math.abs(rec.labor)) : blank;
+
+    tr.innerHTML = `
+      <td class="row-label">${d.getMonth()+1}/${d.getDate()} 星期${WEEKDAY_ZH[dow]}</td>
+      <td>${storeCell}</td>
+      <td>${platformCell}</td>
+      <td class="${rec.hasStoreEntry ? 'neg' : ''}">${paymentCell}</td>
+      <td class="${rec.hasStoreEntry ? 'neg' : ''}">${laborCell}</td>
+    `;
+    body.appendChild(tr);
+  });
+
+  document.getElementById('w-sum-store').textContent = fmtMoney(sumStore);
+  document.getElementById('w-sum-platform').textContent = fmtMoney(sumPlatform);
+  document.getElementById('w-sum-payment').textContent = fmtNeg(-Math.abs(sumPayment));
+  document.getElementById('w-sum-labor').textContent = fmtNeg(-Math.abs(sumLabor));
+}
+
+document.getElementById('w-prev').addEventListener('click', () => { weekOffset--; renderWeekly(); });
+document.getElementById('w-next').addEventListener('click', () => { weekOffset++; renderWeekly(); });
+document.getElementById('w-this').addEventListener('click', () => { weekOffset=0; renderWeekly(); });
+
+// ============================================================
+// 頁籤 2：月報表  +  頁籤 3：月趨勢（共用同一份月資料）
+// ============================================================
+let FINANCE_SETTINGS = { ownerDraw: 70000, startCapital: 0, costRate: 0.5 };
+let MONTHLY_DATA = [];
+
+let monthNavOffset = 0; // 0=本月，-1=上月，以此類推。不開放切到未來月份。
+
+function getSelectedYearMonth(){
+  const d = new Date();
+  d.setMonth(d.getMonth() + monthNavOffset);
+  return { year: d.getFullYear(), month: d.getMonth()+1, str: `${d.getFullYear()}-${pad(d.getMonth()+1)}` };
+}
+
+function findMonthData(year, month){
+  return MONTHLY_DATA.find(m => m.year === year && m.month === month) || null;
+}
+
+async function loadSettingsAndMonthly(){
+  try{
+    const s = await runGS('getFinanceSettings');
+    if(s) FINANCE_SETTINGS = s;
+  }catch(e){ /* 用預設值 */ }
+  document.getElementById('owner-draw-input').value = (FINANCE_SETTINGS && FINANCE_SETTINGS.ownerDraw) || 70000;
+
+  // 不管上面是否失敗，都一定要繼續往下抓月資料，不能被前面卡住
+  await refreshMonthlyData();
+}
+
+async function refreshMonthlyData(){
+  const body = document.getElementById('month-history-body');
+  body.innerHTML = `<tr><td colspan="14" class="loading-note">讀取中…</td></tr>`;
+  let overview = { months: [] };
+  try{
+    overview = await runGS('getFinanceMonthlyData');
+  }catch(e){
+    body.innerHTML = `<tr><td colspan="14" class="loading-note">讀取失敗</td></tr>`;
+    return;
+  }
+  MONTHLY_DATA = overview.months || [];
+  renderMonthTab();
+  renderMonthlyHistoryTable();
+  renderTrendCharts();
+}
+
+/** 切換月份導覽（不重新打後端，直接用已經抓回來的 MONTHLY_DATA 找對應月份） */
+function renderMonthTab(){
+  const sel = getSelectedYearMonth();
+  document.getElementById('month-nav-range').textContent = `${sel.year}年${sel.month}月`;
+  document.getElementById('month-label-1').textContent =
+    `${sel.year}年${sel.month}月試算（租金／水電可在下方修改後儲存）` +
+    (monthNavOffset === 0 ? '' : '　·　正在檢視過去月份');
+
+  const m = findMonthData(sel.year, sel.month);
+  document.getElementById('rent-input').value = m ? m.rent : '';
+  document.getElementById('utility-input').value = m ? m.utility : '';
+
+  renderMonthlyCardsFromData(m);
+}
+
+function renderMonthlyCardsFromData(m){
+  const z = { storeRevenue:0, storeLabor:0, storePayment:0, rent:0, utility:0, storeNetProfit:0,
+    platformSales:0, platformExpense:0, platformNetProfit:0, monthlyProfit:0,
+    totalIncome:0, totalCost:0, costRatio:0, capitalDelta:0, cumulativeCapital:0 };
+  const d = m || z;
+
+  document.getElementById('pnl-store-revenue').textContent = fmtMoney(d.storeRevenue);
+  document.getElementById('pnl-store-labor').textContent = fmtNeg(-Math.abs(d.storeLabor));
+  document.getElementById('pnl-store-payment').textContent = fmtNeg(-Math.abs(d.storePayment));
+  document.getElementById('pnl-store-rent').textContent = fmtNeg(-Math.abs(d.rent));
+  document.getElementById('pnl-store-utility').textContent = fmtNeg(-Math.abs(d.utility));
+  document.getElementById('pnl-store-net').textContent = fmtMoney(d.storeNetProfit);
+
+  document.getElementById('pnl-platform-sales').textContent = fmtMoney(d.platformSales);
+  document.getElementById('pnl-platform-expense').textContent = fmtNeg(-Math.abs(d.platformExpense));
+  document.getElementById('pnl-platform-net').textContent = fmtMoney(d.platformNetProfit);
+
+  document.getElementById('pnl-monthly-profit').textContent = fmtMoney(d.monthlyProfit);
+
+  document.getElementById('ratio-income').textContent = fmtMoney(d.totalIncome);
+  document.getElementById('ratio-cost').textContent = fmtMoney(d.totalCost);
+  document.getElementById('ratio-pct').textContent = d.costRatio + '%';
+
+  document.getElementById('capital-delta').textContent = fmtMoney(d.capitalDelta);
+  document.getElementById('capital-cumulative').textContent = fmtMoney(d.cumulativeCapital);
+}
+
+document.getElementById('m-prev').addEventListener('click', () => { monthNavOffset--; renderMonthTab(); });
+document.getElementById('m-next').addEventListener('click', () => { if(monthNavOffset < 0){ monthNavOffset++; renderMonthTab(); } });
+document.getElementById('m-this').addEventListener('click', () => { monthNavOffset = 0; renderMonthTab(); });
+
+function renderMonthlyHistoryTable(){
+  const body = document.getElementById('month-history-body');
+  if(MONTHLY_DATA.length === 0){
+    body.innerHTML = `<tr><td colspan="14" class="loading-note">目前還沒有資料</td></tr>`;
+    return;
+  }
+  body.innerHTML = '';
+  MONTHLY_DATA.forEach(m => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="row-label">${m.label}</td>
+      <td>${fmtMoney(m.storeRevenue)}</td>
+      <td>${fmtMoney(m.platformSales)}</td>
+      <td class="neg">${fmtNeg(-Math.abs(m.storeLabor))}</td>
+      <td class="neg">${fmtNeg(-Math.abs(m.storePayment))}</td>
+      <td class="neg">${fmtNeg(-Math.abs(m.rent))}</td>
+      <td class="neg">${fmtNeg(-Math.abs(m.utility))}</td>
+      <td class="${m.storeNetProfit<0?'neg':'pos'}">${fmtMoney(m.storeNetProfit)}</td>
+      <td class="${m.platformNetProfit<0?'neg':'pos'}">${fmtMoney(m.platformNetProfit)}</td>
+      <td class="${m.monthlyProfit<0?'neg':'pos'}">${fmtMoney(m.monthlyProfit)}</td>
+      <td>${m.costRatio}%</td>
+      <td class="neg">${fmtNeg(-Math.abs(m.ownerDraw))}</td>
+      <td class="${m.capitalDelta<0?'neg':'pos'}">${fmtMoney(m.capitalDelta)}</td>
+      <td>${fmtMoney(m.cumulativeCapital)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+// ---- 租金／水電／老闆薪資 儲存（租金／水電是存到「目前正在檢視的月份」，不是永遠存今天） ----
+document.getElementById('rent-save-btn').addEventListener('click', async () => {
+  const ym = getSelectedYearMonth().str;
+  const status = document.getElementById('rent-status');
+  status.textContent = '儲存中…';
+  try{
+    await runGS('setMonthlyRent', ym, Number(document.getElementById('rent-input').value)||0);
+    status.textContent = '已儲存 ✅';
+    await refreshMonthlyData();
+  }catch(e){ status.textContent = '儲存失敗'; }
+});
+document.getElementById('utility-save-btn').addEventListener('click', async () => {
+  const ym = getSelectedYearMonth().str;
+  const status = document.getElementById('utility-status');
+  status.textContent = '儲存中…';
+  try{
+    await runGS('setMonthlyUtility', ym, Number(document.getElementById('utility-input').value)||0);
+    status.textContent = '已儲存 ✅';
+    await refreshMonthlyData();
+  }catch(e){ status.textContent = '儲存失敗'; }
+});
+document.getElementById('owner-draw-save-btn').addEventListener('click', async () => {
+  const status = document.getElementById('owner-draw-status');
+  status.textContent = '儲存中…';
+  try{
+    await runGS('setOwnerDraw', Number(document.getElementById('owner-draw-input').value)||0);
+    status.textContent = '已儲存 ✅';
+    await refreshMonthlyData();
+  }catch(e){ status.textContent = '儲存失敗'; }
+});
+
+// ============================================================
+// 頁籤 3：月趨勢圖表
+// ============================================================
+function movingAverage(arr, windowSize){
+  return arr.map((_, i) => {
+    const start = Math.max(0, i - windowSize + 1);
+    const slice = arr.slice(start, i+1);
+    const sum = slice.reduce((a,b)=>a+b, 0);
+    return Math.ceil(sum / slice.length);
+  });
+}
+
+function renderTrendCharts(){
+  if(MONTHLY_DATA.length === 0) return;
+  const labels = MONTHLY_DATA.map(m => m.label);
+  const profits = MONTHLY_DATA.map(m => m.monthlyProfit);
+  const capitals = MONTHLY_DATA.map(m => m.cumulativeCapital);
+  const ratios = MONTHLY_DATA.map(m => m.costRatio);
+  const storeRev = MONTHLY_DATA.map(m => m.storeRevenue);
+  const platformRev = MONTHLY_DATA.map(m => m.platformSales);
+
+  // A. 本月收益趨勢（實線）＋ 3個月移動平均（虛線）——兩條都是折線
+  const ma3 = movingAverage(profits, 3);
+  renderMultiLineChart('chart-profit-trend', labels, [
+    { name:'本月收益', color:'#5b7b54', data:profits, dashed:false },
+    { name:'3個月移動平均', color:'#f2b705', data:ma3, dashed:true }
+  ]);
+
+  // B. 店面資本累計成長曲線
+  renderComboChart('chart-capital-trend', labels, [],
+    { name:'累計店面資本', color:'#f2b705', data:capitals }
+  );
+
+  // C. 收入成本率趨勢（警戒線 60%）
+  renderComboChart('chart-ratio-trend', labels, [],
+    { name:'收入成本率(%)', color:'#a6402d', data:ratios },
+    { thresholdY:60, thresholdLabel:'警戒線 60%' }
+  );
+
+  // D. 店內 vs 平台 營收佔比堆疊圖
+  renderStackedBarChart('chart-channel-mix', labels, [
+    { name:'店內營業額', color:'#c9a24a' },
+    { name:'平台銷售額', color:'#5b6f8a' }
+  ].map((s,idx) => ({ ...s, data: idx===0 ? storeRev : platformRev })));
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+(async function init(){
+  try{ await renderWeekly(); }catch(e){ console.error('週報表初始化失敗：', e); }
+  try{ await loadSettingsAndMonthly(); }catch(e){ console.error('月報表初始化失敗：', e); }
+})();
+</script>
+</body>
+</html>
