@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拾伍鍋物 · 訂單看板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EAD9B8; --card-bg:#F8F0DC; --cream:#F3E7C9; --cream-dark:#E1CFA1;
+    --ink:#241B14; --ink-soft:#7C6A4F; --accent:#7A2A1E; --stamp:#B23A1E; --copper:#A47C3D;
+    --line-green:#06c755;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Noto Sans TC',sans-serif; min-height:100vh; padding:20px;
+  }
+  .topbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap;}
+  h1{font-family:'Noto Serif TC',serif; font-size:22px; margin:0;}
+  .busy-panel{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .busy-status{font-size:14px; font-weight:700; padding:8px 14px; border-radius:20px; border:1.5px solid var(--ink);}
+  .busy-status.open{background:var(--line-green); color:#fff; border-color:var(--line-green);}
+  .busy-status.closed{background:var(--stamp); color:#fff; border-color:var(--stamp);}
+  .btn{
+    border:1.5px solid var(--ink); border-radius:10px; padding:10px 16px; font-size:14px; font-weight:900;
+    cursor:pointer; background:var(--card-bg); color:var(--ink);
+  }
+  .btn.primary{background:var(--stamp); color:#fff; border-color:var(--stamp);}
+  .btn.green{background:var(--line-green); color:#fff; border-color:var(--line-green);}
+  .btn:active{opacity:0.75;}
+
+  #startGate{
+    position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:16px; z-index:50; text-align:center; padding:20px;
+  }
+  #startGate p{color:var(--ink-soft); font-size:14px; max-width:300px;}
+
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;
+  }
+  .order-card{
+    background:var(--card-bg); border-radius:8px; padding:16px; border:1px solid var(--cream-dark);
+    border-top:4px solid var(--copper); position:relative; transition:transform 0.2s, opacity 0.2s;
+  }
+  .order-card.is-new{border-top-color:var(--stamp); box-shadow:0 0 0 3px rgba(178,58,30,0.35);}
+  .order-card.confirming{opacity:0.4; pointer-events:none;}
+  .oc-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
+  .oc-id{font-family:'Noto Serif TC',serif; font-weight:900; font-size:16px;}
+  .oc-type{font-size:11px; color:#fff; background:var(--ink); border-radius:10px; padding:2px 10px;}
+  .oc-row{font-size:13px; margin-bottom:4px; color:var(--ink-soft);}
+  .oc-row b{color:var(--ink); font-weight:700;}
+  .oc-items{
+    font-size:12px; white-space:pre-line; background:#fffdf6; border-radius:6px; padding:8px 10px;
+    margin:8px 0; border:1px dashed var(--cream-dark); max-height:140px; overflow-y:auto;
+  }
+  .oc-total{font-family:'Noto Serif TC',serif; font-weight:900; font-size:18px; color:var(--stamp); text-align:right; margin-bottom:10px;}
+  .oc-confirm{width:100%; padding:12px; font-size:15px;}
+  .empty-note{color:var(--ink-soft); font-size:14px; text-align:center; padding:40px 0;}
+  .last-check{font-size:11px; color:var(--ink-soft); text-align:center; margin-top:20px;}
+</style>
+</head>
+<body>
+
+<div id="startGate">
+  <h1>拾伍鍋物 · 訂單看板</h1>
+  <p>平板放著這頁不要關，收到新訂單會自動跳出來。點下面開始監控（需要點一下才能開啟提示音）。</p>
+  <button class="btn primary" id="startBtn" style="padding:16px 28px; font-size:16px;">開始監控</button>
+</div>
+
+<div class="topbar">
+  <h1>拾伍鍋物 · 訂單看板</h1>
+  <div class="busy-panel">
+    <span class="busy-status open" id="busyStatusText">接單中</span>
+    <button class="btn" id="busyBtn">忙碌中，30分鐘後恢復</button>
+    <button class="btn green" id="resumeBtn" style="display:none;">恢復接單</button>
+  </div>
+</div>
+<div id="busyActionStatus" style="font-size:12px; color:var(--ink-soft); text-align:right; margin:-10px 0 10px;"></div>
+
+<div class="grid" id="ordersGrid"></div>
+<div class="last-check" id="lastCheck"></div>
+
+<script>
+const BACKEND_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzWOgtpot90dQDiAN1_rs0bMLJtnlFBA_b-GAPUvg-qRUFY9b4E9-EEbGmFmJo8-zkkBw/exec';
+let audioCtx = null;
+let seenIds = new Set();
+let firstLoad = true;
+
+async function backendCall(payload){
+  const res = await fetch(BACKEND_WEBHOOK_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if(!data || data.ok===false) throw new Error((data && data.error) || '後端回應失敗');
+  return data;
+}
+
+function beep(){
+  try{
+    if(!audioCtx) return;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.value = 880;
+    g.gain.value = 0.15;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    setTimeout(()=>{ o.frequency.value = 660; }, 150);
+    setTimeout(()=>{ o.stop(); }, 320);
+  }catch(e){}
+}
+
+document.getElementById('startBtn').addEventListener('click', async ()=>{
+  try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){}
+  document.getElementById('startGate').style.display = 'none';
+  await refreshOrders();
+  await refreshBusy();
+  setInterval(refreshOrders, 8000);
+  setInterval(refreshBusy, 15000);
+});
+
+function escapeHtml(str){ const d=document.createElement('div'); d.innerText=str==null?'':String(str); return d.innerHTML; }
+
+async function refreshOrders(){
+  let data;
+  try{
+    data = await backendCall({action:'list_pending_orders'});
+  }catch(e){
+    console.error('讀取訂單失敗', e);
+    return;
+  }
+  const orders = data.orders || [];
+  const grid = document.getElementById('ordersGrid');
+
+  if(orders.length === 0){
+    grid.innerHTML = '<p class="empty-note">目前沒有待確認的訂單</p>';
+  } else {
+    grid.innerHTML = orders.map(o=>{
+      const isNew = !firstLoad && !seenIds.has(o.orderId);
+      return `<div class="order-card${isNew?' is-new':''}" data-order-id="${escapeHtml(o.orderId)}">
+        <div class="oc-head">
+          <span class="oc-id">${escapeHtml(o.orderId)}</span>
+          <span class="oc-type">${escapeHtml(o.orderType)}</span>
+        </div>
+        <div class="oc-row"><b>${escapeHtml(o.customerName)}</b>　${escapeHtml(o.phone)}</div>
+        <div class="oc-row">取餐時間：${escapeHtml(o.scheduledTime)}</div>
+        <div class="oc-items">${escapeHtml(o.itemsText)}</div>
+        <div class="oc-total">$${escapeHtml(o.totalAmount)}</div>
+        <button class="btn primary oc-confirm" data-action="confirm">確認訂單，通知客人</button>
+      </div>`;
+    }).join('');
+  }
+
+  if(!firstLoad){
+    const newOnes = orders.filter(o=>!seenIds.has(o.orderId));
+    if(newOnes.length>0) beep();
+  }
+  seenIds = new Set(orders.map(o=>o.orderId));
+  firstLoad = false;
+
+  grid.querySelectorAll('[data-action="confirm"]').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const card = e.target.closest('.order-card');
+      const orderId = card.getAttribute('data-order-id');
+      card.classList.add('confirming');
+      try{
+        await backendCall({action:'confirm_order', orderId});
+        card.remove();
+      }catch(err){
+        alert('確認失敗：' + err.message);
+        card.classList.remove('confirming');
+      }
+    });
+  });
+
+  document.getElementById('lastCheck').textContent = '最後更新：' + new Date().toLocaleTimeString('zh-TW', {hour12:false});
+}
+
+async function refreshBusy(){
+  let data;
+  try{
+    data = await backendCall({action:'get_busy_status'});
+  }catch(e){ return; }
+  const statusEl = document.getElementById('busyStatusText');
+  const busyBtn = document.getElementById('busyBtn');
+  const resumeBtn = document.getElementById('resumeBtn');
+  if(data.busy){
+    const mins = Math.max(0, Math.ceil((new Date(data.until) - new Date())/60000));
+    statusEl.textContent = `忙碌中（約${mins}分鐘後恢復）`;
+    statusEl.className = 'busy-status closed';
+    busyBtn.style.display = 'none';
+    resumeBtn.style.display = 'inline-block';
+  }else{
+    statusEl.textContent = '接單中';
+    statusEl.className = 'busy-status open';
+    busyBtn.style.display = 'inline-block';
+    resumeBtn.style.display = 'none';
+  }
+}
+
+document.getElementById('busyBtn').addEventListener('click', async ()=>{
+  const actionStatus = document.getElementById('busyActionStatus');
+  actionStatus.textContent = '設定中…';
+  try{
+    await backendCall({action:'set_busy', minutes:30});
+    await refreshBusy();
+    actionStatus.textContent = '已設定為忙碌中';
+  }catch(e){
+    console.error('set_busy 失敗', e);
+    actionStatus.textContent = '設定失敗：' + e.message;
+  }
+});
+document.getElementById('resumeBtn').addEventListener('click', async ()=>{
+  const actionStatus = document.getElementById('busyActionStatus');
+  actionStatus.textContent = '設定中…';
+  try{
+    await backendCall({action:'clear_busy'});
+    await refreshBusy();
+    actionStatus.textContent = '已恢復接單';
+  }catch(e){
+    console.error('clear_busy 失敗', e);
+    actionStatus.textContent = '設定失敗：' + e.message;
+  }
+});
+</script>
+</body>
+</html>
