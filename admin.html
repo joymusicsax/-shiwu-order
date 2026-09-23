@@ -31,12 +31,6 @@
   .btn.green{background:var(--line-green); color:#fff; border-color:var(--line-green);}
   .btn:active{opacity:0.75;}
 
-  #startGate{
-    position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center;
-    flex-direction:column; gap:16px; z-index:50; text-align:center; padding:20px;
-  }
-  #startGate p{color:var(--ink-soft); font-size:14px; max-width:300px;}
-
   .grid{
     display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;
   }
@@ -95,12 +89,6 @@
 </head>
 <body>
 
-<div id="startGate">
-  <h1>拾伍鍋物 · 訂單看板</h1>
-  <p>平板放著這頁不要關，收到新訂單會自動跳出來。點下面開始監控（需要點一下才能開啟提示音）。</p>
-  <button class="btn primary" id="startBtn" style="padding:16px 28px; font-size:16px;">開始監控</button>
-</div>
-
 <div class="topbar">
   <h1>拾伍鍋物 · 訂單看板</h1>
   <div class="busy-panel">
@@ -155,16 +143,23 @@ function beep(){
   }catch(e){}
 }
 
-document.getElementById('startBtn').addEventListener('click', async ()=>{
-  try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){}
-  document.getElementById('startGate').style.display = 'none';
+// 直接自動開始監控，不用再多一個「開始監控」的畫面。
+// 瀏覽器的自動播放限制通常要求「使用者互動過一次」才能真的發出聲音，
+// 所以先嘗試建立 AudioContext，再額外掛一個「第一次點畫面任何地方」的監聽，
+// 確保提示音之後一定叫得動，而不會擋住看板本身的顯示。
+try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){}
+document.addEventListener('click', ()=>{
+  if(audioCtx && audioCtx.state === 'suspended'){ audioCtx.resume().catch(()=>{}); }
+}, { once:true });
+
+(async function initDashboard(){
   await refreshOrders();
   await refreshBusy();
   await refreshCompletedCount();
   setInterval(refreshOrders, 8000);
   setInterval(refreshBusy, 15000);
   setInterval(refreshCompletedCount, 15000);
-});
+})();
 
 function escapeHtml(str){ const d=document.createElement('div'); d.innerText=str==null?'':String(str); return d.innerHTML; }
 
