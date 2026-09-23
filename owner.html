@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拾伍鍋物 · 老闆總覽</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EAD9B8; --card-bg:#F8F0DC; --cream:#F3E7C9; --cream-dark:#E1CFA1;
+    --ink:#241B14; --ink-soft:#7C6A4F; --stamp:#B23A1E; --copper:#A47C3D;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Noto Sans TC',sans-serif; min-height:100vh; padding:24px 16px 40px;
+  }
+  .wrap{max-width:520px; margin:0 auto;}
+  .masthead{text-align:center; margin-bottom:26px;}
+  .masthead .eyebrow{
+    font-size:11px; letter-spacing:0.3em; color:var(--copper); text-transform:uppercase;
+    display:block; margin-bottom:6px; font-weight:700;
+  }
+  .masthead h1{font-family:'Noto Serif TC',serif; font-weight:900; font-size:26px; margin:0;}
+  .masthead p{font-size:12.5px; color:var(--ink-soft); margin:8px 0 0;}
+
+  .menu-card{
+    display:flex; align-items:center; gap:16px;
+    background:var(--card-bg); border-radius:8px; padding:18px 20px; margin-bottom:14px;
+    border-top:4px solid var(--copper); text-decoration:none; color:var(--ink);
+    box-shadow:0 6px 16px rgba(0,0,0,0.12);
+  }
+  .menu-card:active{ background:var(--cream-dark); }
+  .menu-card .icon{font-size:32px; flex-shrink:0;}
+  .menu-card .txt h2{font-family:'Noto Serif TC',serif; font-size:17px; margin:0 0 3px;}
+  .menu-card .txt p{font-size:12px; color:var(--ink-soft); margin:0; line-height:1.5;}
+  .menu-card .arrow{margin-left:auto; font-size:20px; color:var(--copper); flex-shrink:0;}
+  .owner-nav{
+    display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-bottom:20px;
+  }
+  .owner-nav a{
+    font-family:'Noto Sans TC',sans-serif; font-size:11.5px; font-weight:900;
+    color:var(--ink); border:1px solid var(--ink); border-radius:20px;
+    padding:6px 13px; text-decoration:none; background:var(--card-bg);
+  }
+  .owner-nav a:hover{ background:var(--cream-dark); }
+  .owner-nav a.active{ background:var(--ink); color:var(--card-bg); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="owner-nav">
+    <a href="owner.html" class="active">🏠 總覽</a>
+    <a href="admin.html">📋 訂單看板</a>
+    <a href="daily-report.html">📊 鍋物日報</a>
+    <a href="finance.html">💰 財務報表</a>
+  </nav>
+  <div class="masthead">
+    <span class="eyebrow">拾伍鍋物 · 管理總覽</span>
+    <h1>老闆，你好 👋</h1>
+    <p>選一個要用的功能</p>
+  </div>
+
+  <a class="menu-card" href="admin.html">
+    <span class="icon">📋</span>
+    <div class="txt">
+      <h2>訂單看板</h2>
+      <p>即時看新訂單、確認出餐、忙碌時暫停接單</p>
+    </div>
+    <span class="arrow">›</span>
+  </a>
+
+  <a class="menu-card" href="daily-report.html">
+    <span class="icon">📊</span>
+    <div class="txt">
+      <h2>鍋物日報</h2>
+      <p>每天登記貨款、營業額、薪水，自動試算淨利與資本額</p>
+    </div>
+    <span class="arrow">›</span>
+  </a>
+
+  <a class="menu-card" href="finance.html">
+    <span class="icon">💰</span>
+    <div class="txt">
+      <h2>財務報表</h2>
+      <p>週報表、月損益表、趨勢圖表，用實際現金流計算</p>
+    </div>
+    <span class="arrow">›</span>
+  </a>
+</div>
+</body>
+</html>
