@@ -64,6 +64,33 @@
   .oc-confirm{width:100%; padding:12px; font-size:15px;}
   .empty-note{color:var(--ink-soft); font-size:14px; text-align:center; padding:40px 0;}
   .last-check{font-size:11px; color:var(--ink-soft); text-align:center; margin-top:20px;}
+  .completed-toggle{
+    width:100%; text-align:left; background:var(--card-bg); border:1px solid var(--copper);
+    border-radius:6px; padding:12px 16px; font-size:14px; font-weight:900; cursor:pointer;
+    margin-bottom:14px; color:var(--ink);
+  }
+  .completed-toggle .arrow{float:right; transition:transform 0.2s;}
+  .completed-toggle.open .arrow{transform:rotate(90deg);}
+  .completed-list{display:none; margin:-6px 0 14px;}
+  .completed-list.open{display:block;}
+  .completed-row{
+    display:flex; justify-content:space-between; gap:10px; font-size:13px;
+    padding:8px 12px; border-bottom:1px dashed var(--cream-dark); background:var(--card-bg);
+  }
+  .completed-row:first-child{border-radius:6px 6px 0 0;}
+  .completed-row:last-child{border-bottom:none; border-radius:0 0 6px 6px;}
+  .completed-row .cr-id{font-weight:900; color:var(--ink-soft);}
+  .completed-row .cr-amount{font-weight:900; color:var(--stamp);}
+  .owner-nav{
+    display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-bottom:16px;
+  }
+  .owner-nav a{
+    font-family:'Noto Sans TC',sans-serif; font-size:11.5px; font-weight:900;
+    color:var(--ink); border:1px solid var(--ink); border-radius:20px;
+    padding:6px 13px; text-decoration:none; background:var(--card-bg);
+  }
+  .owner-nav a:hover{ background:var(--cream-dark); }
+  .owner-nav a.active{ background:var(--ink); color:var(--card-bg); }
 </style>
 </head>
 <body>
@@ -82,7 +109,16 @@
     <button class="btn green" id="resumeBtn" style="display:none;">恢復接單</button>
   </div>
 </div>
+<nav class="owner-nav">
+  <a href="owner.html">🏠 總覽</a>
+  <a href="admin.html" class="active">📋 訂單看板</a>
+  <a href="daily-report.html">📊 鍋物日報</a>
+  <a href="finance.html">💰 財務報表</a>
+</nav>
 <div id="busyActionStatus" style="font-size:12px; color:var(--ink-soft); text-align:right; margin:-10px 0 10px;"></div>
+
+<button class="completed-toggle" id="completedToggleBtn">📋 今日已完成訂單 (0) <span class="arrow">▶</span></button>
+<div class="completed-list" id="completedList"></div>
 
 <div class="grid" id="ordersGrid"></div>
 <div class="last-check" id="lastCheck"></div>
@@ -124,8 +160,10 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
   document.getElementById('startGate').style.display = 'none';
   await refreshOrders();
   await refreshBusy();
+  await refreshCompletedCount();
   setInterval(refreshOrders, 8000);
   setInterval(refreshBusy, 15000);
+  setInterval(refreshCompletedCount, 15000);
 });
 
 function escapeHtml(str){ const d=document.createElement('div'); d.innerText=str==null?'':String(str); return d.innerHTML; }
@@ -197,6 +235,7 @@ async function refreshOrders(){
         if(!document.querySelector('.order-card')){
           grid.innerHTML = '<p class="empty-note">目前沒有待確認的訂單</p>';
         }
+        refreshCompletedCount();
       }catch(err){
         alert('操作失敗：' + err.message);
         card.classList.remove('confirming');
@@ -251,6 +290,47 @@ document.getElementById('resumeBtn').addEventListener('click', async ()=>{
   }catch(e){
     console.error('clear_busy 失敗', e);
     actionStatus.textContent = '設定失敗：' + e.message;
+  }
+});
+
+// ============ 今日已完成訂單（收合面板） ============
+let completedPanelOpen = false;
+const completedToggleBtn = document.getElementById('completedToggleBtn');
+const completedListEl = document.getElementById('completedList');
+
+function renderCompletedList(orders){
+  if(orders.length === 0){
+    completedListEl.innerHTML = '<div class="completed-row" style="justify-content:center; color:var(--ink-soft);">今天還沒有完成的訂單</div>';
+    return;
+  }
+  completedListEl.innerHTML = orders.map(o=>`
+    <div class="completed-row">
+      <span class="cr-id">${escapeHtml(o.orderId)}</span>
+      <span>${escapeHtml(o.customerName)}</span>
+      <span>${escapeHtml(o.scheduledTime)}</span>
+      <span class="cr-amount">$${escapeHtml(o.totalAmount)}</span>
+    </div>
+  `).join('');
+}
+
+async function refreshCompletedCount(){
+  try{
+    const data = await backendCall({action:'list_completed_today'});
+    const count = (data && data.count) || 0;
+    completedToggleBtn.innerHTML = `📋 今日已完成訂單 (${count}) <span class="arrow">▶</span>`;
+    if(completedPanelOpen) renderCompletedList((data && data.orders) || []);
+  }catch(e){
+    console.error('讀取今日完成訂單失敗', e);
+  }
+}
+
+completedToggleBtn.addEventListener('click', async ()=>{
+  completedPanelOpen = !completedPanelOpen;
+  completedToggleBtn.classList.toggle('open', completedPanelOpen);
+  completedListEl.classList.toggle('open', completedPanelOpen);
+  if(completedPanelOpen){
+    completedListEl.innerHTML = '<div class="completed-row" style="justify-content:center;">載入中…</div>';
+    await refreshCompletedCount();
   }
 });
 </script>
