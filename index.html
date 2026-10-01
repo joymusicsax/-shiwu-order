@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#F2E4DB;
+    --bg:#EAD9B8;
     --card-bg:#F8F0DC;
     --cream:#F3E7C9;
     --cream-dark:#E1CFA1;
@@ -414,6 +414,7 @@
     <div class="modal-card">
       <div class="modal-title">外送資訊</div>
       <div class="modal-sub" style="color:var(--ink-soft); font-weight:400; font-size:12px;">請提前至少 2 小時預訂外送時間</div>
+      <div class="modal-sub" style="color:var(--stamp); font-weight:700; font-size:12px; margin-top:-6px;">⚠️ 訂單需滿 $1000 以上才能外送</div>
 
       <div class="modal-group-label">外送地址</div>
       <input type="text" id="deliveryAddressInput" placeholder="請輸入完整外送地址">
@@ -879,6 +880,10 @@ document.getElementById('deliveryConfirmBtn').addEventListener('click', async ()
   const dateLabel = `${deliveryDate.getMonth()+1}/${deliveryDate.getDate()}（週${WD_LABEL[deliveryDate.getDay()]}）`;
   const aggRows = computeAggRows();
   const aggTotal = aggRows.reduce((s,b)=> s + blockUnitPrice(b)*b.qty, 0);
+  if(aggTotal < 1000){
+    alert(`目前團購總金額只有 $${aggTotal}，未達外送最低金額 $1000，請團員再加點後再送出`);
+    return;
+  }
   const payload = {
     action: 'submit_order',
     orderType: '團體外送',
