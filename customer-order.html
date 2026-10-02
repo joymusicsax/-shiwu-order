@@ -135,6 +135,11 @@
   }
   .price-box:active{background:var(--ink); color:#fff;}
   .price-box.added{background:var(--line-green); border-color:var(--line-green); color:#fff;}
+  .price-box.sold-out{background:var(--cream-dark); border-color:var(--cream-dark); color:var(--ink-soft); font-weight:500; cursor:not-allowed;}
+  .addon-chip.sold-out{background:var(--cream-dark); border-color:var(--cream-dark); color:var(--ink-soft); cursor:not-allowed;}
+  .addon-chip.sold-out .ap{color:var(--ink-soft);}
+  .order-line.sold-out{opacity:0.55;}
+  .order-line.sold-out .qty-btn{visibility:hidden;}
 
   .addon-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
   .addon-chip{
@@ -242,30 +247,15 @@
     padding:10px; font-size:13px; cursor:pointer;
   }
 
-  .busy-overlay{
-    position:fixed; inset:0; background:var(--bg);
-    display:none; align-items:center; justify-content:center; z-index:500; padding:20px;
+  .sold-out-banner{
+    display:none; background:var(--stamp); color:#fff; text-align:center;
+    font-weight:900; font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:10px;
+    line-height:1.6;
   }
-  .busy-overlay.show{display:flex;}
-  .busy-card{
-    background:var(--card-bg); border-radius:8px; padding:28px 22px; text-align:center;
-    border-top:4px solid var(--copper); max-width:340px; width:100%;
-  }
-  .busy-card .bc-title{font-family:'Noto Serif TC',serif; font-weight:900; font-size:18px; margin-bottom:10px;}
-  .busy-card .bc-timer{
-    font-family:'Noto Serif TC',serif; font-weight:900; font-size:40px; color:var(--stamp); margin:14px 0;
-  }
-  .busy-card .bc-note{font-size:13px; color:var(--ink-soft); line-height:1.7;}
+  .sold-out-banner.show{display:block;}
 </style>
 </head>
 <body>
-<div class="busy-overlay" id="busyOverlay">
-  <div class="busy-card">
-    <div class="bc-title">目前暫停接單</div>
-    <div class="bc-timer" id="busyTimer">--:--</div>
-    <div class="bc-note">店家目前忙碌中，請稍候再回來點餐<br>時間到了會自動恢復</div>
-  </div>
-</div>
 <div class="wrap">
 
   <!-- ============ LANDING VIEW ============ -->
@@ -311,6 +301,7 @@
       <h2 class="card-title">預計取餐時間</h2>
       <button class="date-btn" id="dateBtn"></button>
       <div class="cal-panel" id="calPanel" style="display:none;"></div>
+      <div class="sold-out-banner" id="soldOutBanner">今日已售罄，歡迎預先訂購明天的餐點唷 🍲</div>
       <div class="time-grid" id="timeGrid"></div>
     </div>
 
@@ -979,6 +970,15 @@ function renderModalAddonGrid(){
   wrap.innerHTML = ALACARTE.map(i=>{
     const key = `alacarte|${i.id}`;
     const qty = modalAddons[key] || 0;
+    const soldOut = SOLD_OUT_IDS.has(i.id);
+    if(soldOut){
+      return `<div class="order-line sold-out">
+        <div>
+          <div class="ol-name">${i.zh}</div>
+          <div class="ol-sub">今日售完</div>
+        </div>
+      </div>`;
+    }
     return `<div class="order-line" data-key="${key}">
       <div>
         <div class="ol-name">${i.zh}</div>
@@ -991,7 +991,7 @@ function renderModalAddonGrid(){
       </div>
     </div>`;
   }).join('');
-  wrap.querySelectorAll('.order-line').forEach(row=>{
+  wrap.querySelectorAll('.order-line[data-key]').forEach(row=>{
     const key = row.getAttribute('data-key');
     row.querySelector('[data-action="inc"]').addEventListener('click', ()=>{
       modalAddons[key] = (modalAddons[key]||0) + 1;
@@ -1039,8 +1039,11 @@ function renderMenu(){
   let html = '';
   function dishRowHtml(item){
     const isSpecial = !!item.price;
+    const soldOut = SOLD_OUT_IDS.has(item.id);
     let row = `<div class="dish-row"><div class="dish-name">${item.zh}</div>`;
-    if(isSpecial){
+    if(soldOut){
+      row += `<div class="price-box sold-out" style="grid-column: span 3;">今日售完</div>`;
+    }else if(isSpecial){
       row += `<div class="price-box" style="grid-column: span 3;" data-hotpot="${item.id}" data-protein="">${item.price}</div>`;
     }else{
       ['豬','牛','羊'].forEach(p=>{
@@ -1064,7 +1067,7 @@ function renderMenu(){
     dishes.forEach(item=>{ html += dishRowHtml(item); });
   });
   wrap.innerHTML = html;
-  wrap.querySelectorAll('.price-box').forEach(box=>{
+  wrap.querySelectorAll('.price-box:not(.sold-out)').forEach(box=>{
     box.addEventListener('click', ()=>{
       const itemId = box.getAttribute('data-hotpot');
       const protein = box.getAttribute('data-protein') || null;
@@ -1081,6 +1084,13 @@ function renderMenu(){
 function renderAddons(){
   const wrap = document.getElementById('addonWrap');
   function chipHtml(item, section){
+    const soldOut = SOLD_OUT_IDS.has(item.id);
+    if(soldOut){
+      return `<div class="addon-chip sold-out">
+        <span class="an">${item.zh}</span>
+        <span class="ap">今日售完</span>
+      </div>`;
+    }
     return `<div class="addon-chip" data-section="${section}" data-item="${item.id}">
       <span class="an">${item.zh}</span>
       <span class="ap">$${item.price}</span>
@@ -1089,7 +1099,7 @@ function renderAddons(){
   let html = '<div class="addon-section-title">小菜／涼拌</div><div class="addon-grid">' + SIDE.map(i=>chipHtml(i,'side')).join('') + '</div>';
   html += '<div class="addon-section-title jump-anchor" id="cat-anchor-soupbase">湯底（無配料）</div><div class="addon-grid">' + SOUPBASE.map(i=>chipHtml(i,'soupbase')).join('') + '</div>';
   wrap.innerHTML = html;
-  wrap.querySelectorAll('.addon-chip').forEach(chip=>{
+  wrap.querySelectorAll('.addon-chip:not(.sold-out)').forEach(chip=>{
     chip.addEventListener('click', ()=>{
       const section = chip.getAttribute('data-section');
       const itemId = chip.getAttribute('data-item');
@@ -1285,16 +1295,54 @@ function renderCalendar(){
   if(prevBtn) prevBtn.addEventListener('click', ()=>{ calMonthCursor = new Date(y, m-1, 1); renderCalendar(); });
   panel.querySelector('[data-nav="next"]').addEventListener('click', ()=>{ calMonthCursor = new Date(y, m+1, 1); renderCalendar(); });
 }
+// 老闆在「今日庫存」頁勾選的已售完品項
+let SOLD_OUT_IDS = new Set();
+async function refreshSoldOutIds(){
+  try{
+    const data = await backendCall({action:'get_inventory_status'});
+    SOLD_OUT_IDS = new Set(data.soldOutIds || []);
+  }catch(e){
+    console.error('讀取今日庫存失敗', e);
+    SOLD_OUT_IDS = new Set();
+  }
+  renderMenu();
+  renderAddons();
+}
+
+// 老闆在看板上封鎖的時段（只會針對「今天」這個日期生效）
+let SLOT_BLOCK = null; // {blocked:false} 或 {blocked:true, date:'yyyy-MM-dd', until:'18:30'|'ALL'}
+function dateToYMD(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+async function refreshSlotBlock(){
+  try{
+    SLOT_BLOCK = await backendCall({action:'get_slot_block_status'});
+  }catch(e){
+    console.error('讀取時段封鎖狀態失敗', e);
+    SLOT_BLOCK = {blocked:false};
+  }
+  renderTimeGrid();
+}
 function isSlotDisabled(slot){
   const today = new Date();
-  if(!sameDate(selectedDate, today)) return false;
-  const [h,mi] = slot.split(':').map(Number);
-  const slotDate = new Date();
-  slotDate.setHours(h, mi, 0, 0);
-  return slotDate.getTime() <= today.getTime();
+  if(sameDate(selectedDate, today)){
+    const [h,mi] = slot.split(':').map(Number);
+    const slotDate = new Date();
+    slotDate.setHours(h, mi, 0, 0);
+    if(slotDate.getTime() <= today.getTime()) return true;
+  }
+  if(SLOT_BLOCK && SLOT_BLOCK.blocked && SLOT_BLOCK.date === dateToYMD(selectedDate)){
+    if(SLOT_BLOCK.until === 'ALL') return true;
+    if(slot <= SLOT_BLOCK.until) return true;
+  }
+  return false;
 }
 function renderTimeGrid(){
   const grid = document.getElementById('timeGrid');
+  const banner = document.getElementById('soldOutBanner');
+  const soldOutToday = SLOT_BLOCK && SLOT_BLOCK.blocked && SLOT_BLOCK.until === 'ALL'
+    && SLOT_BLOCK.date === dateToYMD(selectedDate) && sameDate(selectedDate, new Date());
+  if(banner) banner.classList.toggle('show', !!soldOutToday);
   grid.innerHTML = TIME_SLOTS.map(slot=>{
     const disabled = isSlotDisabled(slot);
     const selected = slot===selectedTime;
@@ -1467,50 +1515,9 @@ document.getElementById('doneBackHomeBtn').addEventListener('click', ()=>{
   window.location.href = LINE_OA_URL;
 });
 
-// ============ 忙碌模式（老闆在看板按「忙碌中」時，擋住點餐畫面） ============
-let busyCountdownTimer = null;
-function formatCountdown(ms){
-  const totalSec = Math.max(0, Math.ceil(ms/1000));
-  const m = Math.floor(totalSec/60);
-  const s = totalSec%60;
-  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-}
-function showBusyOverlay(untilTs){
-  document.getElementById('busyOverlay').classList.add('show');
-  const timerEl = document.getElementById('busyTimer');
-  if(busyCountdownTimer) clearInterval(busyCountdownTimer);
-  const tick = ()=>{
-    const remain = untilTs - Date.now();
-    if(remain <= 0){
-      clearInterval(busyCountdownTimer);
-      checkBusyGate(); // 時間到了，重新跟後端確認一次是否已經恢復接單
-      return;
-    }
-    timerEl.textContent = formatCountdown(remain);
-  };
-  tick();
-  busyCountdownTimer = setInterval(tick, 1000);
-}
-function hideBusyOverlay(){
-  if(busyCountdownTimer) clearInterval(busyCountdownTimer);
-  document.getElementById('busyOverlay').classList.remove('show');
-}
-async function checkBusyGate(){
-  let data;
-  try{
-    data = await backendCall({action:'get_busy_status'});
-  }catch(e){
-    console.error('讀取忙碌狀態失敗', e);
-    hideBusyOverlay(); // 連不到後端時先讓畫面可以用，避免整頁卡死
-    return;
-  }
-  if(data && data.busy){
-    showBusyOverlay(new Date(data.until).getTime());
-  }else{
-    hideBusyOverlay();
-  }
-}
-checkBusyGate();
+// 老闆在看板上封鎖的時段，只會擋掉「今天」符合條件的時段，不會擋住整個頁面
+refreshSlotBlock();
+refreshSoldOutIds();
 </script>
 </body>
 </html>
