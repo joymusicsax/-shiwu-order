@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#F2E4DB; --card-bg:#F8F0DC; --cream:#F3E7C9; --cream-dark:#E1CFA1;
+    --bg:#EAD9B8; --card-bg:#F8F0DC; --cream:#F3E7C9; --cream-dark:#E1CFA1;
     --ink:#241B14; --ink-soft:#7C6A4F; --accent:#7A2A1E; --stamp:#B23A1E; --copper:#A47C3D;
     --line-green:#06c755; --inprogress-blue:#2C5F8A;
   }
@@ -93,9 +93,17 @@
 <div class="topbar">
   <h1>拾伍鍋物 · 訂單看板</h1>
   <div class="busy-panel">
-    <span class="busy-status open" id="busyStatusText">接單中</span>
-    <button class="btn" id="busyBtn">忙碌中，30分鐘後恢復</button>
-    <button class="btn green" id="resumeBtn" style="display:none;">恢復接單</button>
+    <span class="busy-status open" id="busyStatusText">正常接單</span>
+    <select class="btn" id="blockSlotSelect" style="cursor:pointer;">
+      <option value="1">封鎖接下來 1 個時段（30分鐘）</option>
+      <option value="2">封鎖接下來 2 個時段（1小時）</option>
+      <option value="3">封鎖接下來 3 個時段（1.5小時）</option>
+      <option value="4">封鎖接下來 4 個時段（2小時）</option>
+      <option value="6">封鎖接下來 6 個時段（3小時）</option>
+    </select>
+    <button class="btn" id="blockSlotBtn">套用封鎖</button>
+    <button class="btn" id="closeTodayBtn" style="background:var(--stamp); color:#fff; border-color:var(--stamp);">🔒 下班（今日售完）</button>
+    <button class="btn green" id="clearBlockBtn" style="display:none;">清除封鎖，恢復正常</button>
   </div>
 </div>
 <nav class="owner-nav">
@@ -242,46 +250,59 @@ async function refreshOrders(){
 async function refreshBusy(){
   let data;
   try{
-    data = await backendCall({action:'get_busy_status'});
+    data = await backendCall({action:'get_slot_block_status'});
   }catch(e){ return; }
   const statusEl = document.getElementById('busyStatusText');
-  const busyBtn = document.getElementById('busyBtn');
-  const resumeBtn = document.getElementById('resumeBtn');
-  if(data.busy){
-    const mins = Math.max(0, Math.ceil((new Date(data.until) - new Date())/60000));
-    statusEl.textContent = `忙碌中（約${mins}分鐘後恢復）`;
+  const clearBtn = document.getElementById('clearBlockBtn');
+  if(data.blocked && data.until === 'ALL'){
+    statusEl.textContent = '今日已下班，不再接單';
     statusEl.className = 'busy-status closed';
-    busyBtn.style.display = 'none';
-    resumeBtn.style.display = 'inline-block';
+    clearBtn.style.display = 'inline-block';
+  }else if(data.blocked){
+    statusEl.textContent = `已封鎖今天 ${data.until} 以前的時段`;
+    statusEl.className = 'busy-status closed';
+    clearBtn.style.display = 'inline-block';
   }else{
-    statusEl.textContent = '接單中';
+    statusEl.textContent = '正常接單';
     statusEl.className = 'busy-status open';
-    busyBtn.style.display = 'inline-block';
-    resumeBtn.style.display = 'none';
+    clearBtn.style.display = 'none';
   }
 }
 
-document.getElementById('busyBtn').addEventListener('click', async ()=>{
+document.getElementById('blockSlotBtn').addEventListener('click', async ()=>{
   const actionStatus = document.getElementById('busyActionStatus');
+  const slotCount = document.getElementById('blockSlotSelect').value;
   actionStatus.textContent = '設定中…';
   try{
-    await backendCall({action:'set_busy', minutes:30});
+    await backendCall({action:'block_upcoming_slots', slotCount});
     await refreshBusy();
-    actionStatus.textContent = '已設定為忙碌中';
+    actionStatus.textContent = '已套用時段封鎖';
   }catch(e){
-    console.error('set_busy 失敗', e);
+    console.error('block_upcoming_slots 失敗', e);
     actionStatus.textContent = '設定失敗：' + e.message;
   }
 });
-document.getElementById('resumeBtn').addEventListener('click', async ()=>{
+document.getElementById('closeTodayBtn').addEventListener('click', async ()=>{
   const actionStatus = document.getElementById('busyActionStatus');
   actionStatus.textContent = '設定中…';
   try{
-    await backendCall({action:'clear_busy'});
+    await backendCall({action:'close_for_today'});
     await refreshBusy();
-    actionStatus.textContent = '已恢復接單';
+    actionStatus.textContent = '已設定今日售完';
   }catch(e){
-    console.error('clear_busy 失敗', e);
+    console.error('close_for_today 失敗', e);
+    actionStatus.textContent = '設定失敗：' + e.message;
+  }
+});
+document.getElementById('clearBlockBtn').addEventListener('click', async ()=>{
+  const actionStatus = document.getElementById('busyActionStatus');
+  actionStatus.textContent = '設定中…';
+  try{
+    await backendCall({action:'clear_slot_block'});
+    await refreshBusy();
+    actionStatus.textContent = '已恢復正常接單';
+  }catch(e){
+    console.error('clear_slot_block 失敗', e);
     actionStatus.textContent = '設定失敗：' + e.message;
   }
 });
