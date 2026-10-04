@@ -655,8 +655,8 @@ document.getElementById('timeSelectNextBtn').addEventListener('click', ()=>{
 });
 function soloTimeLabel(){
   if(!selectedDate || !selectedTime) return '';
-  const today = stripTime(new Date());
-  const dateLabel = sameDate(selectedDate, today) ? '今日' : `${selectedDate.getMonth()+1}/${selectedDate.getDate()}（週${WD_LABEL[selectedDate.getDay()]}）`;
+  // 一律附上完整日期（不再用「今日」這種會隨時間失效的說法），避免隔天看到訂單時搞混是哪一天
+  const dateLabel = `${selectedDate.getMonth()+1}/${selectedDate.getDate()}（週${WD_LABEL[selectedDate.getDay()]}）`;
   return `${dateLabel} ${selectedTime}`;
 }
 
@@ -888,6 +888,7 @@ document.getElementById('deliveryConfirmBtn').addEventListener('click', async ()
     lineDisplayName: liffProfile ? liffProfile.displayName : '',
     lineUserId: liffProfile ? liffProfile.userId : '',
     scheduledTime: `${dateLabel} ${time}`,
+    scheduledDate: dateToYMD(deliveryDate),
   };
 
   const btn = document.getElementById('deliveryConfirmBtn');
@@ -1449,6 +1450,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     lineDisplayName: liffProfile ? liffProfile.displayName : '',
     lineUserId: liffProfile ? liffProfile.userId : '',
     scheduledTime: scheduledTime,
+    scheduledDate: dateToYMD(selectedDate),
   };
 
   let result;
