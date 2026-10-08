@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style>
 <title>音階指法對照盤</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -50,13 +56,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* controls */
-.panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 420px); gap: 28px; padding: 24px; align-items: center; }
-.ctl { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
-.row { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.panel { display: flex; flex-direction: column; gap: 22px; padding: 24px; }
+.row { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 12px; align-items: center; min-width: 0; }
+.pager { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.playall { flex: 0 1 240px; min-height: 52px; margin-left: 8px; padding: 0 22px; border: 0; border-radius: 6px; background: var(--ink); color: var(--bg); font-weight: 700; font-size: 16px; letter-spacing: .04em; transition: background .15s; }
+.playall:hover { background: var(--accent); color: var(--accent-ink); }
+.playall[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.arr { display: none; flex: 0 0 36px; height: 52px; border: 1px solid var(--line); background: var(--bg); border-radius: 6px; font-size: 24px; line-height: 1; padding: 0; }
+.arr:hover:not(:disabled) { border-color: var(--accent); }
+.arr:disabled { opacity: .3; cursor: default; }
+.pager.ov .arr { display: block; }
 .row > .lab { font-size: 14px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
-#keys { display: grid; grid-template-columns: repeat(6, 58px); }
-@media (max-width: 420px) { #keys { grid-template-columns: repeat(4, 58px); } }
+#keys { position: relative; flex: 1 1 auto; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+#keys::-webkit-scrollbar { display: none; }
+#keys .chip { flex: 0 0 58px; }
 .chip { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 6px 10px; width: 58px; min-height: 52px; text-align: center; line-height: 1.15; transition: background .15s, border-color .15s; }
 .chip:hover { border-color: var(--accent); }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -67,17 +81,28 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* stage */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; overflow: hidden; }
-.dialbox { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-#dial { width: 100%; max-width: 410px; height: auto; display: block; touch-action: manipulation; }
-#dial .sec { cursor: pointer; }
-#dial .ov { transform-origin: 200px 200px; transition: transform .7s cubic-bezier(.3,.7,.2,1); }
-#dial .ul { transition: transform .7s cubic-bezier(.3,.7,.2,1); }
+.rulerwrap { min-width: 0; overflow-x: auto; padding-bottom: 4px; }
+.ruler { min-width: 620px; }
+.brk { position: relative; height: 42px; margin-inline: 2px; }
+.br { position: absolute; top: 22px; height: 12px; border: 2px solid var(--muted); border-bottom: 0; border-radius: 4px 4px 0 0; }
+.br i { position: absolute; left: 50%; top: -13px; transform: translateX(-50%); font-style: normal; font-size: 12px; font-weight: 700; line-height: 20px; padding: 0 9px; border-radius: 10px; background: var(--ink); color: var(--bg); }
+.br.h { border-color: var(--accent); }
+.br.h i { background: var(--accent); color: var(--accent-ink); }
+.win { position: relative; height: 92px; border: 2px solid var(--cover-line); border-radius: 8px; overflow: hidden; background: var(--ring-nat); cursor: pointer; }
+.under { position: absolute; top: 0; bottom: 0; left: 0; width: calc(120 * 100% / 13); display: flex; transition: transform .7s cubic-bezier(.3,.7,.2,1); }
+.uc { flex: 0 0 calc(100% / 120); display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--line); font-family: var(--font-note); font-weight: 700; line-height: 1.15; background: var(--ring-nat); }
+.uc.blk { background: var(--ring-acc); }
+.uc .a { font-size: 20px; }
+.uc.blk .a { font-size: 17px; }
+.uc .b { font-size: 12px; font-weight: 500; opacity: .75; }
+.mask { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(13, 1fr); pointer-events: none; }
+.mc { border-right: 1px solid var(--cover-line); }
+.mc.cov { background: var(--cover); opacity: .62; }
+.mc.hole { box-shadow: inset 0 0 0 3px var(--accent); }
+.degs { display: grid; grid-template-columns: repeat(13, 1fr); margin-inline: 2px; height: 40px; }
+.degs .deg { text-align: center; padding-top: 14px; font-size: 22px; }
 .pick { display: flex; align-items: center; gap: 16px; padding: 14px 20px; flex-wrap: wrap; }
 .pick .lab { font-size: 14px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-.seg button { border: 0; background: var(--bg); padding: 4px 12px; font-size: 12.5px; }
-.seg button + button { border-left: 1px solid var(--line); }
-.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 
 .results { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .summary { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
@@ -108,33 +133,46 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .kb { padding: 8px 12px 14px; }
 .kb svg { width: 100%; max-width: 560px; height: auto; display: block; margin-inline: auto; }
 
-@media (max-width: 900px) {
-  .panel { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 20px; }
+
+@media (max-width: 760px) {
+  .panel { padding: 16px; gap: 18px; }
+  .row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   h1 { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #dial .ov, #dial .ul { transition: none; }
+  .under { transition: none; }
 }
 </style>
 
+</head>
+<body>
 <div class="wrap">
   <header>
     <h1>音階指法對照盤</h1>
   </header>
 
-  <section class="card panel" aria-label="選擇調性與半音階循環盤">
-    <div class="ctl">
-      <div class="row">
-        <div class="lab">首調調性（鋼琴音高）</div>
+  <section class="card panel" aria-label="選擇首調調性並對照半音階教具">
+    <div class="row">
+      <div class="lab">首調調性（鋼琴音高）</div>
+      <div class="pager">
+        <button type="button" class="arr" id="kprev" aria-label="往左看更多調性">‹</button>
         <div class="chips" id="keys" role="group" aria-label="首調調性，從 C 開始"></div>
-      </div>
-      <div class="row">
-        <div class="lab">常用首調調性</div>
-        <div class="chips" id="quick" role="group" aria-label="常用調性"></div>
+        <button type="button" class="arr" id="knext" aria-label="往右看更多調性">›</button>
       </div>
     </div>
-    <div class="dialbox">
-      <svg id="dial" viewBox="0 0 400 400" role="img" aria-label="十二個半音排成一圈，上面蓋著依全全半全全全半挖空的教具"></svg>
+    <div class="row">
+      <div class="lab">常用首調調性</div>
+      <div class="chips" id="quick" role="group" aria-label="常用調性"></div>
+    </div>
+    <div class="rulerwrap">
+      <div class="ruler">
+        <div class="brk" id="brk"></div>
+        <div class="win" id="win" role="img" aria-label="半音階音名排成一列，上面蓋著依全全半全全全半挖空的半透明教具">
+          <div class="under" id="under"></div>
+          <div class="mask" id="mask"></div>
+        </div>
+        <div class="degs" id="degs"></div>
+      </div>
     </div>
   </section>
 
@@ -145,6 +183,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     </div>
     <div class="results" id="results"></div>
   </section>
+
 </div>
 
 <script>
@@ -179,7 +218,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     1:  { L: [0,0,0], R: [0,0,0] }                   // C#
   };
 
-  var state = { key: 0, rot: 0, ring: 'piano', insts: { piano: true, alto: true, tenor: true } };
+  var state = { key: 0, insts: { piano: true, alto: true, tenor: true } };
 
   /* ---------- 拼音名 ---------- */
   function accOf(li, pc) { var d = (((pc - NATPC[li]) % 12) + 12) % 12; return d > 6 ? d - 12 : d; }
@@ -216,6 +255,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     [3, 10, 5, 0].forEach(function (k) {
       quick.appendChild(el('<button type="button" class="chip" data-k="' + k + '"><span class="n">' + TON[k] + '</span></button>'));
     });
+    quick.appendChild(el('<button type="button" class="playall" id="playall" aria-pressed="false">▶ 一鍵播放音階</button>'));
     var insts = document.getElementById('insts');
     ['piano', 'alto', 'tenor'].forEach(function (id) {
       insts.appendChild(el('<button type="button" class="chip inst" data-i="' + id + '" aria-pressed="true"><span class="sw" style="background:' + INST[id].sw + '"></span>' + INST[id].label + '</button>'));
@@ -224,97 +264,72 @@ button { font: inherit; color: inherit; cursor: pointer; }
       var t = e.target.closest('button'); if (!t) return;
       if (t.dataset.k !== undefined) { setKey(+t.dataset.k); }
       else if (t.dataset.i) { toggleInst(t.dataset.i); }
-      else if (t.dataset.m) { state.ring = t.dataset.m; render(); }
+      else if (t.id === 'playall') { togglePlay(); }
     });
   }
-  function setKey(k) { state.key = k; render(); }
+  function initPager() {
+    var k = document.getElementById('keys'), pg = k.parentNode, prev = document.getElementById('kprev'), next = document.getElementById('knext');
+    function upd() {
+      pg.classList.toggle('ov', k.scrollWidth > k.clientWidth + 1);
+      prev.disabled = k.scrollLeft <= 1;
+      next.disabled = k.scrollLeft + k.clientWidth >= k.scrollWidth - 1;
+    }
+    prev.addEventListener('click', function () { k.scrollBy({ left: -k.clientWidth * 0.75, behavior: 'smooth' }); });
+    next.addEventListener('click', function () { k.scrollBy({ left: k.clientWidth * 0.75, behavior: 'smooth' }); });
+    k.addEventListener('scroll', upd);
+    window.addEventListener('resize', upd);
+    if (window.ResizeObserver) new ResizeObserver(upd).observe(k);
+    upd();
+  }
+  function setKey(k) { stopPlay(); state.key = k; render(); }
   function toggleInst(id) {
     var on = Object.keys(state.insts).filter(function (x) { return state.insts[x]; });
     if (state.insts[id] && on.length === 1) return;       // 至少留一種
-    state.insts[id] = !state.insts[id]; render();
+    stopPlay(); state.insts[id] = !state.insts[id]; render();
   }
 
-  /* ---------- 圓盤 ---------- */
-  var C = 200;
-  function pol(r, deg) { var a = deg * Math.PI / 180; return [C + r * Math.sin(a), C - r * Math.cos(a)]; }
-  function sector(a0, a1, r0, r1) {
-    var p1 = pol(r1, a0), p2 = pol(r1, a1), p3 = pol(r0, a1), p4 = pol(r0, a0);
-    return 'M' + p1 + 'A' + r1 + ',' + r1 + ' 0 0 1 ' + p2 + 'L' + p3 + 'A' + r0 + ',' + r0 + ' 0 0 0 ' + p4 + 'Z';
-  }
-  var dial, ringLabels = [], ov, ulEls = [], centerName;
-  function svgEl(tag, attrs, parent) {
-    var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
-    for (var k in attrs) e.setAttribute(k, attrs[k]);
-    if (parent) parent.appendChild(e); return e;
-  }
-  function buildDial() {
-    dial = document.getElementById('dial');
-    var base = svgEl('g', {}, dial);
-    for (var i = 0; i < 12; i++) {
-      var isBlack = BLACK.indexOf(i) >= 0;
-      var g = svgEl('g', { 'class': 'sec', 'data-pos': i }, base);
-      svgEl('path', { d: sector(i * 30 - 15, i * 30 + 15, 112, 192), fill: isBlack ? 'var(--ring-acc)' : 'var(--ring-nat)', stroke: 'var(--line)', 'stroke-width': 1.5 }, g);
-      var p = pol(152, i * 30);
-      var t = svgEl('text', { x: p[0], y: p[1], 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: 'var(--ink)', 'font-family': 'var(--font-note)', 'font-weight': 700 }, g);
-      ringLabels.push(t);
+  /* ---------- 橫列教具：上層半透明挖空板不動，下層音名跟著調性滑動 ---------- */
+  var HOLES = [0, 2, 4, 5, 7, 9, 11, 12], NCELL = 120, BASE = 48, stripIdx = BASE, snapTimer = null;
+  function buildStrip() {
+    var under = document.getElementById('under'), h = '';
+    for (var i = 0; i < NCELL; i++) {
+      var d = DUAL[i % 12];
+      h += '<div class="uc ' + (d.length > 1 ? 'blk' : 'nat') + '"><span class="a">' + d[0] + '</span>' + (d[1] ? '<span class="b">' + d[1] + '</span>' : '') + '</div>';
     }
-    // 挖空教具（會跟著主音旋轉）
-    ov = svgEl('g', { 'class': 'ov' }, dial);
-    [1, 3, 6, 8, 10].forEach(function (i) {
-      svgEl('path', { d: sector(i * 30 - 15, i * 30 + 15, 108, 196), fill: 'var(--cover)', stroke: 'var(--cover-line)', 'stroke-width': 1.5, 'data-pos': i, 'class': 'sec' }, ov);
+    under.innerHTML = h;
+    var m = '', dg = '';
+    for (var p = 0; p < 13; p++) {
+      var hole = HOLES.indexOf(p) >= 0;
+      m += '<div class="mc ' + (hole ? 'hole' : 'cov') + '"></div>';
+      dg += hole ? '<span class="deg' + (p === 12 ? ' hi' : '') + '">' + (p === 12 ? 1 : MAJ.indexOf(p) + 1) + '</span>' : '<span></span>';
+    }
+    document.getElementById('mask').innerHTML = m;
+    document.getElementById('degs').innerHTML = dg;
+    var bk = '', pos = 0;
+    STEPS.forEach(function (st) {
+      bk += '<div class="br' + (st === 1 ? ' h' : '') + '" style="left:' + ((pos + 0.5) / 13 * 100) + '%;width:' + (st / 13 * 100) + '%"><i>' + (st === 2 ? '全' : '半') + '</i></div>';
+      pos += st;
     });
-    svgEl('circle', { cx: C, cy: C, r: 110, fill: 'var(--hub)', stroke: 'var(--cover-line)', 'stroke-width': 1.5, 'data-pos': 0 }, ov);
-    MAJ.forEach(function (i) {
-      svgEl('path', { d: sector(i * 30 - 15, i * 30 + 15, 112, 192), fill: 'none', stroke: 'var(--accent)', 'stroke-width': 3.5, 'pointer-events': 'none', 'stroke-linejoin': 'round' }, ov);
+    document.getElementById('brk').innerHTML = bk;
+    document.getElementById('win').addEventListener('click', function (e) {
+      var r = this.getBoundingClientRect(), p = Math.floor((e.clientX - r.left) / (r.width / 13));
+      p = Math.max(0, Math.min(12, p));
+      setKey((state.key + p) % 12);
     });
-    // 全／半 標籤（放在教具內圈、兩個挖空格之間）
-    var pos = 0;
-    STEPS.forEach(function (s) {
-      var mid = (pos + s / 2) * 30, p = pol(86, mid), whole = s === 2;
-      var g = svgEl('g', { transform: 'translate(' + p[0] + ',' + p[1] + ')' }, ov);
-      var u = svgEl('g', { 'class': 'ul' }, g); ulEls.push(u);
-      svgEl('circle', { r: 12, fill: whole ? 'var(--ink)' : 'var(--accent)' }, u);
-      var tx = svgEl('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 13, 'font-weight': 700, fill: whole ? 'var(--bg)' : 'var(--accent-ink)', 'font-family': 'var(--font-ui)' }, u);
-      tx.textContent = whole ? '全' : '半';
-      pos += s;
-    });
-    // 音級數字（在每個挖空格的外緣）
-    MAJ.forEach(function (i, n) {
-      var p = pol(183, i * 30);
-      var g = svgEl('g', { transform: 'translate(' + p[0] + ',' + p[1] + ')', 'pointer-events': 'none' }, ov);
-      var u = svgEl('g', { 'class': 'ul' }, g); ulEls.push(u);
-      var tx = svgEl('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 13, 'font-weight': 700, fill: 'var(--muted)', 'font-family': 'var(--font-note)' }, u);
-      tx.textContent = n + 1;
-    });
-    // 中心文字（不旋轉）
-    centerName = svgEl('text', { x: C, y: C, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 40, 'font-weight': 700, fill: 'var(--ink)', 'font-family': 'var(--font-note)', 'pointer-events': 'none' }, dial);
-    dial.addEventListener('click', function (e) {
-      var r = dial.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * 400 - C, y = (e.clientY - r.top) / r.height * 400 - C;
-      var dist = Math.sqrt(x * x + y * y); if (dist < 62 || dist > 198) return;
-      var ang = (Math.atan2(x, -y) * 180 / Math.PI + 360) % 360;
-      setKey(Math.round(ang / 30) % 12);
-    });
+    var u = document.getElementById('under');
+    u.style.transition = 'none'; place(); void u.offsetWidth; u.style.transition = '';
   }
-  function labelRing() {
-    var off = OFFSET[state.ring];
-    ringLabels.forEach(function (t, i) {
-      var d = DUAL[(i + off) % 12];
-      while (t.firstChild) t.removeChild(t.firstChild);
-      var p = pol(152, i * 30);
-      if (d.length === 1) {
-        var a = svgEl('tspan', { x: p[0], 'font-size': 24 }, t); a.textContent = d[0];
-      } else {
-        var a1 = svgEl('tspan', { x: p[0], dy: '-0.55em', 'font-size': 16 }, t); a1.textContent = d[0];
-        var a2 = svgEl('tspan', { x: p[0], dy: '1.2em', 'font-size': 13, 'font-weight': 500, 'fill-opacity': .75 }, t); a2.textContent = d[1];
-      }
-    });
-  }
-  function rotateDial() {
-    var target = state.key * 30, cur = ((state.rot % 360) + 360) % 360;
-    var delta = ((target - cur + 540) % 360) - 180;
-    state.rot += delta;
-    ov.style.transform = 'rotate(' + state.rot + 'deg)';
-    ulEls.forEach(function (u) { u.style.transform = 'rotate(' + (-state.rot) + 'deg)'; });
+  function place() { document.getElementById('under').style.transform = 'translateX(calc(-100% * ' + stripIdx + ' / ' + NCELL + '))'; }
+  function moveStrip() {
+    var u = document.getElementById('under');
+    var delta = ((state.key - (stripIdx % 12) + 18) % 12) - 6;       // 走最短的路
+    stripIdx += delta;
+    clearTimeout(snapTimer);
+    place();
+    snapTimer = setTimeout(function () {                              // 動畫結束後悄悄歸位，避免一直往同一邊跑
+      stripIdx = BASE + state.key;
+      u.style.transition = 'none'; place(); void u.offsetWidth; u.style.transition = '';
+    }, 800);
   }
 
   /* ---------- 指法圖 ---------- */
@@ -396,10 +411,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   function render() {
     document.querySelectorAll('#keys .chip, #quick .chip').forEach(function (b) { b.setAttribute('aria-pressed', +b.dataset.k === state.key ? 'true' : 'false'); });
     document.querySelectorAll('#insts .chip').forEach(function (b) { b.setAttribute('aria-pressed', state.insts[b.dataset.i] ? 'true' : 'false'); });
-    document.querySelectorAll('#ringmode button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.m === state.ring ? 'true' : 'false'); });
-    labelRing(); rotateDial();
-    var name = state.ring === 'piano' ? TON[state.key] : scaleFor(state.ring, state.key).names[0];
-    centerName.textContent = name;
+    moveStrip();
+    var kk = document.getElementById('keys'), sel = kk.querySelector('.chip[aria-pressed="true"]');
+    if (sel && kk.scrollWidth > kk.clientWidth + 1) kk.scrollTo({ left: sel.offsetLeft - (kk.clientWidth - sel.offsetWidth) / 2, behavior: 'smooth' });
     renderResults();
   }
 
@@ -444,6 +458,37 @@ button { font: inherit; color: inherit; cursor: pointer; }
     node.classList.add('flash');
     setTimeout(function () { node.classList.remove('flash'); }, 280);
   }
+  /* 一鍵播放：依序播放目前勾選的每一種樂器的 8 個音 */
+  var playTimers = [], playing = false, STEP_MS = 540;
+  function stopPlay() {
+    playTimers.forEach(clearTimeout); playTimers = []; playing = false;
+    var b = document.getElementById('playall');
+    if (b) { b.textContent = '▶ 一鍵播放音階'; b.setAttribute('aria-pressed', 'false'); }
+  }
+  function flashNode(n) { n.classList.add('flash'); setTimeout(function () { n.classList.remove('flash'); }, 380); }
+  function togglePlay() {
+    if (playing) { stopPlay(); return; }
+    var cards = document.querySelectorAll('#results .card'), t = 0, b = document.getElementById('playall');
+    if (!cards.length) return;
+    audioCtx();                                           // 在點擊當下先喚醒聲音
+    playing = true; b.textContent = '■ 停止播放'; b.setAttribute('aria-pressed', 'true');
+    cards.forEach(function (card) {
+      var cells = card.querySelectorAll('.cell[data-midi]');
+      cells.forEach(function (n) {
+        playTimers.push(setTimeout(function () {
+          playNote(+n.getAttribute('data-midi'), n.getAttribute('data-t')); flashNode(n);
+          if (n.getAttribute('data-t') === 'piano') {
+            var pk = card.querySelectorAll('.pk[data-midi="' + n.getAttribute('data-midi') + '"]');
+            for (var i = 0; i < pk.length; i++) flashNode(pk[i]);
+          }
+        }, t));
+        t += STEP_MS;
+      });
+      t += 500;
+    });
+    playTimers.push(setTimeout(stopPlay, t + 600));
+  }
+
   var res = document.getElementById('results');
   res.addEventListener('click', function (e) { var n = e.target.closest('[data-midi]'); if (n) hit(n); });
   res.addEventListener('keydown', function (e) {
@@ -451,6 +496,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
     var n = e.target.closest('.cell[data-midi]'); if (n) { e.preventDefault(); hit(n); }
   });
 
-  buildControls(); buildDial(); render();
+  buildControls(); initPager(); buildStrip(); stripIdx = BASE + state.key; place(); render();
 })();
 </script>
+</body>
+</html>
