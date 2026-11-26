@@ -284,7 +284,7 @@
       請點餐的顧客提前預訂<br>
       感謝各位的體貼與愛戴
     </div>
-    <div class="landing-note">｜小提醒｜<br>本店週一、週二店休<br><br>送出訂單後訂單即成立<br>可隨時在<b>「我的訂單」</b>查看製作進度</div>
+    <div class="landing-note">｜小提醒｜<br><span id="closedNote">本店週一、週二店休</span><br><br>送出訂單後訂單即成立<br>可隨時在<b>「我的訂單」</b>查看製作進度</div>
   </div>
 
   <!-- ============ TIME SELECT VIEW (solo mode only, shown before the menu) ============ -->
@@ -307,6 +307,7 @@
       <h2 class="card-title">預計取餐時間</h2>
       <button class="date-btn" id="dateBtn"></button>
       <div class="cal-panel" id="calPanel" style="display:none;"></div>
+      <div class="sold-out-banner" id="busyBanner">目前訂單較多，暫停接單 🙏<br>請選擇稍後的時段，或改預訂其他日期</div>
       <div class="sold-out-banner" id="soldOutBanner">今日已售罄，歡迎預先訂購明天的餐點唷 🍲</div>
       <div class="time-grid" id="timeGrid"></div>
     </div>
@@ -819,13 +820,14 @@ function renderDeliveryTimeOptions(){
   const isToday = sameDate(deliveryDate, today);
   const cutoff = new Date(Date.now() + 2*60*60*1000);
   sel.innerHTML = TIME_SLOTS.map(slot=>{
-    let disabled = false;
+    const notOpenYet = beforeOpenFrom(deliveryDate, slot);
+    let disabled = notOpenYet;
     if(isToday){
       const [h,mi] = slot.split(':').map(Number);
       const slotDate = new Date(); slotDate.setHours(h,mi,0,0);
       disabled = slotDate.getTime() <= cutoff.getTime();
     }
-    return `<option value="${slot}" ${disabled?'disabled':''}>${slot}${disabled?'（未達提前2小時）':''}</option>`;
+    return `<option value="${slot}" ${disabled?'disabled':''}>${slot}${notOpenYet?'（尚未開放）':(disabled?'（未達提前2小時）':'')}</option>`;
   }).join('');
   const firstEnabled = Array.from(sel.options).find(o=>!o.disabled);
   if(firstEnabled) sel.value = firstEnabled.value;
@@ -848,7 +850,7 @@ document.getElementById('deliveryDateInput').addEventListener('change', (e)=>{
   const picked = new Date(y, m-1, d);
   const today = stripTime(new Date());
   if(picked < today){ alert('不能選擇過去的日期'); e.target.value = formatDateInput(deliveryDate); return; }
-  if(isClosedDay(picked)){ alert('本店週一、週二店休，請選擇其他日期'); e.target.value = formatDateInput(deliveryDate); return; }
+  if(isClosedDay(picked)){ alert('這天店休，請選擇其他日期'); e.target.value = formatDateInput(deliveryDate); return; }
   deliveryDate = picked;
   renderDeliveryTimeOptions();
 });
@@ -1227,7 +1229,51 @@ const TIME_SLOTS = ["12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:
 const CLOSED_WEEKDAYS = [1,2]; // Monday, Tuesday (公休)
 function stripTime(d){ const n = new Date(d); n.setHours(0,0,0,0); return n; }
 function sameDate(a,b){ return stripTime(a).getTime()===stripTime(b).getTime(); }
-function isClosedDay(d){ return CLOSED_WEEKDAYS.includes(d.getDay()); }
+// 老闆用 LINE 設定的臨時營業／臨時公休：{ 'yyyy-MM-dd': {open:true, from:'17:00'} | {open:false} }
+let BIZ_OVERRIDES = {};
+let bizLoadedOnce = false;
+function bizOverride(d){ return BIZ_OVERRIDES[dateToYMD(d)] || null; }
+function isClosedDay(d){
+  const ov = bizOverride(d);
+  if(ov) return !ov.open;
+  return CLOSED_WEEKDAYS.includes(d.getDay());
+}
+// 臨時營業只開放晚上時：開始時間之前的時段不能選
+function beforeOpenFrom(d, slot){
+  const ov = bizOverride(d);
+  return !!(ov && ov.open && ov.from && slot < ov.from);
+}
+async function refreshBusinessDays(){
+  try{
+    const r = await backendCall({action:'get_business_days'});
+    BIZ_OVERRIDES = r.overrides || {};
+  }catch(e){
+    console.error('讀取營業日設定失敗', e);
+    BIZ_OVERRIDES = {};
+  }
+  renderClosedNote();
+  if(selectedDate){
+    // 第一次載入：還沒選時間就依新規則重算預設日期；之後每分鐘更新時，只在目前日期變成公休才換，不要動到客人正在選的日期
+    if(isClosedDay(selectedDate) || (!bizLoadedOnce && !selectedTime)){ initDateTime(); }
+    else { renderDateBtn(); renderTimeGrid(); }
+  }
+  bizLoadedOnce = true;
+  if(deliveryDate && isClosedDay(deliveryDate)){ deliveryDate = nextOpenDate(stripTime(new Date())); }
+}
+function renderClosedNote(){
+  const el = document.getElementById('closedNote');
+  if(!el) return;
+  const todayYMD = dateToYMD(new Date());
+  const keys = Object.keys(BIZ_OVERRIDES).filter(k=>k>=todayYMD).sort();
+  let html = '本店週一、週二店休';
+  keys.forEach(k=>{
+    const [y,m,d] = k.split('-').map(Number);
+    const wd = WD_LABEL[new Date(y,m-1,d).getDay()];
+    const ov = BIZ_OVERRIDES[k];
+    html += ov.open ? `<br><b>${m}/${d}（週${wd}）臨時營業，${ov.from} 起</b>` : `<br><b>${m}/${d}（週${wd}）臨時公休</b>`;
+  });
+  el.innerHTML = html;
+}
 function nextOpenDate(fromDate){
   let d = stripTime(fromDate);
   while(isClosedDay(d)){ d.setDate(d.getDate()+1); }
@@ -1373,6 +1419,7 @@ document.getElementById('myOrdersBackBtn').addEventListener('click', ()=>{
 // 老闆在看板上封鎖的時段（只會針對「今天」這個日期生效）
 let SLOT_BLOCK = null; // {blocked:false} 或 {blocked:true, date:'yyyy-MM-dd', until:'18:30'|'ALL'}
 function dateToYMD(d){
+  if(!d) return '';
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 async function refreshSlotBlock(){
@@ -1392,6 +1439,7 @@ function isSlotDisabled(slot){
     slotDate.setHours(h, mi, 0, 0);
     if(slotDate.getTime() <= today.getTime()) return true;
   }
+  if(beforeOpenFrom(selectedDate, slot)) return true;
   if(SLOT_BLOCK && SLOT_BLOCK.blocked && SLOT_BLOCK.date === dateToYMD(selectedDate)){
     if(SLOT_BLOCK.until === 'ALL') return true;
     if(slot <= SLOT_BLOCK.until) return true;
@@ -1404,6 +1452,10 @@ function renderTimeGrid(){
   const soldOutToday = SLOT_BLOCK && SLOT_BLOCK.blocked && SLOT_BLOCK.until === 'ALL'
     && SLOT_BLOCK.date === dateToYMD(selectedDate) && sameDate(selectedDate, new Date());
   if(banner) banner.classList.toggle('show', !!soldOutToday);
+  const busyBanner = document.getElementById('busyBanner');
+  const busyToday = SLOT_BLOCK && SLOT_BLOCK.blocked && SLOT_BLOCK.until !== 'ALL'
+    && SLOT_BLOCK.date === dateToYMD(selectedDate) && sameDate(selectedDate, new Date());
+  if(busyBanner) busyBanner.classList.toggle('show', !!busyToday);
   grid.innerHTML = TIME_SLOTS.map(slot=>{
     const disabled = isSlotDisabled(slot);
     const selected = slot===selectedTime;
@@ -1585,6 +1637,9 @@ document.getElementById('doneBackHomeBtn').addEventListener('click', ()=>{
 // 老闆在看板上封鎖的時段，只會擋掉「今天」符合條件的時段，不會擋住整個頁面
 refreshSlotBlock();
 refreshSoldOutIds();
+refreshBusinessDays();
+// 老闆暫停接單、臨時營業的設定，已經開著頁面的客人也要在一分鐘內看到
+setInterval(()=>{ refreshSlotBlock(); refreshBusinessDays(); }, 60000);
 </script>
 </body>
 </html>
