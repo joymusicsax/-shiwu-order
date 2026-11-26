@@ -257,6 +257,12 @@
   .status-badge.st-wait{background:#8a6d3b;}
   .status-badge.st-making{background:#2f6fb5;}
   .status-badge.st-done{background:#2e8b57;}
+  .status-badge.st-cancel{background:#8b8b8b;}
+  .act-btn{width:100%; padding:13px; border-radius:8px; font-weight:900; font-size:15px; border:2px solid; background:#fff; cursor:pointer; margin-top:10px;}
+  .cancel-btn{border-color:var(--stamp); color:var(--stamp);}
+  .edit-btn{border-color:var(--ink); color:var(--ink);}
+  #doneActions{margin-bottom:12px;}
+  .cancel-note{margin-top:10px; font-size:12px; color:var(--ink-soft); text-align:center; line-height:1.6;}
 </style>
 </head>
 <body>
@@ -291,7 +297,7 @@
   <div id="timeSelectView" style="display:none;">
     <div class="topbar">
       <button class="back-btn" id="timeSelectBackBtn">‹ 返回</button>
-      <span class="mode-tag">自取點餐</span>
+      <span class="mode-tag" id="timeSelectTag">自取點餐</span>
     </div>
 
     <div class="card">
@@ -370,7 +376,7 @@
   <!-- ============ ORDER COMPLETE VIEW (solo self-pickup, after submitting) ============ -->
   <div id="orderCompleteView" style="display:none;">
     <div class="card" style="text-align:center;">
-      <h2 class="card-title" style="font-size:19px; margin-bottom:6px;">✅ 訂單已成立</h2>
+      <h2 class="card-title" id="doneTitle" style="font-size:19px; margin-bottom:6px;">✅ 訂單已成立</h2>
       <div id="doneStatusBadge" class="status-badge st-wait">店家已收到訂單</div>
       <div style="font-size:12px; color:var(--ink-soft); margin-top:8px; line-height:1.6;">請截圖保存此畫面<br>此頁會自動更新進度，也可隨時從首頁「我的訂單」查看</div>
     </div>
@@ -382,6 +388,7 @@
       <div id="doneOrderLinesWrap"></div>
       <div class="order-total"><span>總計金額</span><span id="doneOrderTotal">$0</span></div>
     </div>
+    <div id="doneActions"></div>
     <button class="role-btn" id="doneBackHomeBtn" style="width:100%; aspect-ratio:auto; padding:14px; font-size:16px;">回到「拾伍鍋物」LINE</button>
   </div>
 
@@ -591,6 +598,9 @@ let modalAdjust = 'normal'; // 'normal' | 'swap'
 let modalAddons = {}; // { 'alacarte|itemId': qty } extra add-ons picked while ordering a hotpot/soupbase
 
 let soloCustomerName = '', soloCustomerPhone = '';
+let editing = null;   // 修改訂單中：{orderId,status,origDate,origTime,createdAt,skew}
+let lastOrder = null; // 剛送出（或剛修改）的訂單，成功頁的取消／修改按鈕使用
+let myOrdersCache = {};
 
 // ============ LANDING ============
 document.getElementById('soloBtn').addEventListener('click', ()=>{
@@ -608,7 +618,9 @@ document.getElementById('groupEnterBtn').addEventListener('click', ()=>{
   mode = 'group'; groupCode = code; groupName = name;
   enterOrderView();
 });
+function cancelEditing(){ if(editing){ editing = null; cart = []; } }
 document.getElementById('backBtn').addEventListener('click', ()=>{
+  cancelEditing();
   document.getElementById('orderView').style.display = 'none';
   document.getElementById('submitBar').style.display = 'none';
   document.getElementById('landingView').style.display = 'block';
@@ -616,6 +628,7 @@ document.getElementById('backBtn').addEventListener('click', ()=>{
 
 // ============ TIME SELECT VIEW (solo only, before the menu) ============
 function showTimeSelectView(){
+  document.getElementById('timeSelectTag').textContent = '自取點餐';
   document.getElementById('landingView').style.display = 'none';
   document.getElementById('timeSelectView').style.display = 'block';
   document.getElementById('soloNameField').style.display = 'block';
@@ -647,6 +660,7 @@ async function prefillCustomerInfo(){
   }
 }
 document.getElementById('timeSelectBackBtn').addEventListener('click', ()=>{
+  cancelEditing();
   document.getElementById('timeSelectView').style.display = 'none';
   document.getElementById('landingView').style.display = 'block';
 });
@@ -671,8 +685,8 @@ function enterOrderView(){
   document.getElementById('landingView').style.display = 'none';
   document.getElementById('orderView').style.display = 'block';
   document.getElementById('submitBar').style.display = 'block';
-  document.getElementById('modeTag').textContent = mode==='group' ? `團購代號：${groupCode}／${groupName}` : `自取點餐．取餐時間：${soloTimeLabel()}`;
-  document.getElementById('submitBtn').textContent = mode==='group' ? '送出我的餐點' : '送出訂單';
+  document.getElementById('modeTag').textContent = mode==='group' ? `團購代號：${groupCode}／${groupName}` : editing ? `修改訂單 ${editing.orderId}．取餐時間：${soloTimeLabel()}` : `自取點餐．取餐時間：${soloTimeLabel()}`;
+  document.getElementById('submitBtn').textContent = mode==='group' ? '送出我的餐點' : (editing ? '送出修改' : '送出訂單');
   document.getElementById('viewSummaryLinkWrap').style.display = mode==='group' ? 'block' : 'none';
   renderMenu();
   renderAddons();
@@ -908,6 +922,8 @@ document.getElementById('deliveryConfirmBtn').addEventListener('click', async ()
   btn.textContent = originalLabel;
   document.getElementById('winTicketWrap').innerHTML = renderWinTicketHtml();
 
+  lastOrder = {orderId: result.orderId, createdAt: result.createdAt, skew: (result.serverNow||Date.now()) - Date.now(), status:'待確認', orderType:'自取點餐',
+    customerName: payload.customerName, phone: payload.phone, scheduledTime: payload.scheduledTime, scheduledDate: payload.scheduledDate, detail: payload.detail};
   showOrderCompleteView({
     infoRows: [
       {label:'LINE 顯示名稱', value: payload.lineDisplayName || '（未取得，請於LINE中開啟本頁面）'},
@@ -1159,7 +1175,7 @@ function updateSubmitBar(itemCount, total){
     return;
   }
   bar.style.display = 'block';
-  const baseLabel = mode==='group' ? '送出我的餐點' : '送出訂單';
+  const baseLabel = mode==='group' ? '送出我的餐點' : (editing ? '送出修改' : '送出訂單');
   btn.textContent = `${baseLabel}．共${itemCount}件．$${total}`;
 }
 function renderOrder(){
@@ -1354,6 +1370,7 @@ async function refreshSoldOutIds(){
 
 // ============ 訂單狀態（客人端，免LINE推播） ============
 function statusInfo(st){
+  if(st==='已取消') return {cls:'st-cancel', text:'❌ 已取消'};
   if(st==='已完成') return {cls:'st-done', text:'✅ 已完成，歡迎取餐'};
   if(st==='已確認') return {cls:'st-making', text:'🍳 店家製作中'};
   return {cls:'st-wait', text:'店家已收到訂單'};
@@ -1368,7 +1385,7 @@ function startDoneStatusPolling(orderId){
       const info = statusInfo(r.status);
       badge.className = 'status-badge ' + info.cls;
       badge.textContent = info.text;
-      if(r.status==='已完成') stopDoneStatusPolling();
+      if(r.status==='已完成' || r.status==='已取消'){ stopDoneStatusPolling(); const da = document.getElementById('doneActions'); if(da) da.innerHTML = ''; }
     }catch(e){}
   };
   stopDoneStatusPolling();
@@ -1378,6 +1395,108 @@ function startDoneStatusPolling(orderId){
 function stopDoneStatusPolling(){
   if(doneStatusTimer){ clearInterval(doneStatusTimer); doneStatusTimer = null; }
 }
+
+// ============ 修改訂單／10 分鐘內取消 ============
+function isEditable(o){
+  return o.orderType==='自取點餐' && Array.isArray(o.detail) && o.detail.length>0 && o.detail.every(d=>d.id)
+    && (o.scheduledDate||'') >= dateToYMD(new Date());
+}
+function orderActionsHtml(o){
+  const st = o.status || '待確認';
+  if(st==='已完成' || st==='已取消') return '';
+  const id = escapeHtml(String(o.orderId));
+  let h = '';
+  const deadline = (o.createdAt||0) + 10*60*1000 - (o.skew||0);
+  if(o.createdAt && Date.now() < deadline){
+    h += `<button class="act-btn cancel-btn" data-oid="${id}" data-deadline="${deadline}">取消訂單（<span class="cd"></span>）</button>`;
+  } else {
+    h += `<div class="cancel-note">已超過 10 分鐘，如需取消請聯絡店家</div>`;
+  }
+  if(isEditable(o)) h += `<button class="act-btn edit-btn" data-oid="${id}">✏️ 修改訂單</button>`;
+  return h;
+}
+function tickCancel(){
+  document.querySelectorAll('.cancel-btn[data-deadline]').forEach(btn=>{
+    const rem = Number(btn.getAttribute('data-deadline')) - Date.now();
+    if(rem <= 0){
+      const note = document.createElement('div');
+      note.className = 'cancel-note';
+      note.textContent = '已超過 10 分鐘，如需取消請聯絡店家';
+      btn.replaceWith(note);
+      return;
+    }
+    const sec = Math.ceil(rem/1000);
+    const cd = btn.querySelector('.cd');
+    if(cd) cd.textContent = `剩 ${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+  });
+}
+setInterval(tickCancel, 1000);
+
+function cartFromDetail(detail){
+  return detail.map(d=>{
+    const stapleObj = d.staple ? STAPLES.find(x=>x.zh===d.staple) : null;
+    const staple = stapleObj ? stapleObj.id : null;
+    const protein = d.protein || null;
+    const note = d.swap ? '火鍋料換菜' : (d.note || '');
+    const addons = (d.addons||[]).map(a=>({section:a.sec, itemId:a.id, qty:a.qty||1}));
+    return {key: cartKey(d.sec, d.id, protein, staple, note, addons), section:d.sec, itemId:d.id, protein, staple, note, addons, qty:d.qty||1};
+  });
+}
+function ymdToDate(ymd){ const [y,m,d] = ymd.split('-').map(Number); return new Date(y, m-1, d); }
+function startEditOrder(o){
+  stopDoneStatusPolling();
+  editing = {orderId:o.orderId, status:o.status||'待確認', origDate:o.scheduledDate, origTime:String(o.scheduledTime||'').trim().split(' ').pop(), createdAt:o.createdAt, skew:o.skew||0};
+  mode = 'solo';
+  cart = cartFromDetail(o.detail);
+  soloCustomerName = o.customerName || '';
+  soloCustomerPhone = o.phone || '';
+  ['orderCompleteView','myOrdersView','landingView','orderView'].forEach(id=>{ document.getElementById(id).style.display = 'none'; });
+  document.getElementById('submitBar').style.display = 'none';
+  document.getElementById('timeSelectTag').textContent = `修改訂單 ${o.orderId}`;
+  document.getElementById('timeSelectView').style.display = 'block';
+  document.getElementById('soloNameField').style.display = 'block';
+  document.getElementById('soloNameInput').value = soloCustomerName;
+  document.getElementById('soloPhoneInput').value = soloCustomerPhone;
+  selectedDate = ymdToDate(o.scheduledDate);
+  selectedTime = editing.origTime;
+  calMonthCursor = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  renderDateBtn();
+  renderTimeGrid();
+  prefillCustomerInfo();
+  window.scrollTo({top:0});
+}
+document.addEventListener('click', async (e)=>{
+  const cbtn = e.target.closest('.cancel-btn');
+  const ebtn = e.target.closest('.edit-btn');
+  if(cbtn){
+    const oid = cbtn.getAttribute('data-oid');
+    if(!confirm(`確定要取消訂單 ${oid} 嗎？取消後無法復原。`)) return;
+    cbtn.disabled = true;
+    try{
+      await withTimeout(backendCall({action:'cancel_order', orderId:oid, lineUserId: liffProfile ? liffProfile.userId : ''}), 15000);
+    }catch(err){
+      cbtn.disabled = false;
+      alert('取消失敗：' + (err.message==='timeout' ? '連線逾時，請再試一次' : err.message));
+      return;
+    }
+    if(document.getElementById('orderCompleteView').style.display === 'block'){
+      stopDoneStatusPolling();
+      const badge = document.getElementById('doneStatusBadge');
+      badge.className = 'status-badge st-cancel'; badge.textContent = '❌ 已取消';
+      document.getElementById('doneTitle').textContent = '訂單已取消';
+      document.getElementById('doneActions').innerHTML = '';
+    } else {
+      openMyOrders();
+    }
+    showToast && showToast('訂單已取消，已通知店家');
+    return;
+  }
+  if(ebtn){
+    const oid = ebtn.getAttribute('data-oid');
+    const o = (lastOrder && lastOrder.orderId===oid) ? lastOrder : myOrdersCache[oid];
+    if(o) startEditOrder(o);
+  }
+});
 
 async function openMyOrders(){
   document.getElementById('landingView').style.display = 'none';
@@ -1394,6 +1513,9 @@ async function openMyOrders(){
       wrap.innerHTML = '<p class="empty-note">目前沒有訂單紀錄</p>';
       return;
     }
+    const skew = (r.serverNow || Date.now()) - Date.now();
+    myOrdersCache = {};
+    r.orders.forEach(o=>{ o.skew = skew; myOrdersCache[o.orderId] = o; });
     wrap.innerHTML = r.orders.map(o=>{
       const info = statusInfo(o.status);
       return `<div class="card">
@@ -1404,8 +1526,11 @@ async function openMyOrders(){
         <div style="font-size:13px; line-height:1.7;">取餐時間：${escapeHtml(String(o.scheduledTime||''))}</div>
         <div style="font-size:13px; line-height:1.7; white-space:pre-line; margin-top:6px;">${escapeHtml(String(o.itemsText||''))}</div>
         <div class="order-total" style="margin-top:8px;"><span>總計金額</span><span>$${escapeHtml(String(o.totalAmount||0))}</span></div>
+        ${o.editCount ? `<div style="font-size:12px; color:var(--ink-soft); margin-top:6px;">✏️ 已修改 ${o.editCount} 次</div>` : ''}
+        ${orderActionsHtml(o)}
       </div>`;
     }).join('');
+    tickCancel();
   }catch(e){
     wrap.innerHTML = '<p class="empty-note">讀取失敗，請稍後再試</p>';
   }
@@ -1440,7 +1565,9 @@ function isSlotDisabled(slot){
     if(slotDate.getTime() <= today.getTime()) return true;
   }
   if(beforeOpenFrom(selectedDate, slot)) return true;
-  if(SLOT_BLOCK && SLOT_BLOCK.blocked && SLOT_BLOCK.date === dateToYMD(selectedDate)){
+  // 修改訂單時，原本已經接受的取餐時段不會因為「暫停接單」而被擋掉
+  const keepOrig = editing && editing.origDate === dateToYMD(selectedDate) && editing.origTime === slot;
+  if(!keepOrig && SLOT_BLOCK && SLOT_BLOCK.blocked && SLOT_BLOCK.date === dateToYMD(selectedDate)){
     if(SLOT_BLOCK.until === 'ALL') return true;
     if(slot <= SLOT_BLOCK.until) return true;
   }
@@ -1481,13 +1608,14 @@ function buildDetail(rowsSource){
     if(!item) return null;
     return {
       sec: line.section,
+      id: line.itemId,
       name: item.zh,
       protein: line.protein || '',
       staple: line.staple ? STAPLE_ZH[line.staple] : '',
       swap: line.note === '火鍋料換菜',
       note: (line.note && line.note !== '火鍋料換菜') ? line.note : '',
       qty: line.qty,
-      addons: (line.addons||[]).map(a=>{ const ai = findAddon(a.itemId); return ai ? {name: ai.zh, qty: a.qty||1} : null; }).filter(Boolean),
+      addons: (line.addons||[]).map(a=>{ const ai = findAddon(a.itemId); return ai ? {id: a.itemId, sec: a.section, name: ai.zh, qty: a.qty||1} : null; }).filter(Boolean),
     };
   }).filter(Boolean);
 }
@@ -1552,6 +1680,41 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
   const scheduledTime = soloTimeLabel();
   const cartTotal = cart.reduce((s,line)=> s + lineUnitPrice(line)*line.qty, 0);
   const itemsRowsSnapshot = cart.map(line=>({...line}));
+
+  if(editing){
+    if(editing.status==='已確認' && !confirm('店家已經確認並開始製作了，修改後會立刻通知店家，確定要送出修改嗎？')){ statusEl.textContent = ''; return; }
+    const upd = {
+      action: 'update_order', orderId: editing.orderId, lineUserId: liffProfile ? liffProfile.userId : '',
+      itemsText: itemsTextFromRows(cart), detail: buildDetail(cart), totalAmount: cartTotal,
+      scheduledTime: scheduledTime, scheduledDate: dateToYMD(selectedDate),
+    };
+    let ur;
+    try{
+      ur = await withTimeout(backendCall(upd), 15000);
+    }catch(e){
+      statusEl.textContent = '修改失敗：' + (e && e.message==='timeout' ? '送出逾時，請檢查網路後再試一次' : (e && e.message) || '請稍後再試');
+      return;
+    }
+    statusEl.textContent = '';
+    lastOrder = {orderId: editing.orderId, createdAt: editing.createdAt, skew: editing.skew, status: ur.status || editing.status, orderType:'自取點餐',
+      customerName: soloCustomerName, phone: soloCustomerPhone, scheduledTime, scheduledDate: upd.scheduledDate, detail: upd.detail};
+    const doneId = editing.orderId;
+    editing = null;
+    showOrderCompleteView({
+      title: '✅ 訂單已修改，已通知店家',
+      infoRows: [
+        {label:'訂單編號', value: doneId},
+        {label:'姓名', value: soloCustomerName},
+        {label:'電話', value: soloCustomerPhone},
+        {label:'取餐時間', value: scheduledTime},
+      ],
+      itemsRows: itemsRowsSnapshot,
+      total: cartTotal,
+    });
+    startDoneStatusPolling(doneId);
+    return;
+  }
+
   const payload = {
     action: 'submit_order',
     orderType: '自取點餐',
@@ -1613,6 +1776,9 @@ function buildReadOnlyLinesHtml(rows){
   }).join('');
 }
 function showOrderCompleteView(data){
+  document.getElementById('doneTitle').textContent = data.title || '✅ 訂單已成立';
+  document.getElementById('doneActions').innerHTML = lastOrder ? orderActionsHtml(lastOrder) : '';
+  setTimeout(tickCancel, 0);
   document.getElementById('orderView').style.display = 'none';
   document.getElementById('submitBar').style.display = 'none';
   document.getElementById('doneInfoRows').innerHTML = data.infoRows.map(r=>

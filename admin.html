@@ -59,6 +59,12 @@
     font-size:12px; white-space:pre-line; background:#fffdf6; border-radius:6px; padding:8px 10px;
     margin:8px 0; border:1px dashed var(--cream-dark); max-height:140px; overflow-y:auto;
   }
+  .oc-edit-badge{display:inline-block; background:#d9822b; color:#fff; font-size:12px; font-weight:900; padding:3px 11px; border-radius:20px; margin:2px 0 6px;}
+  .oc-prev{font-size:12px; color:var(--ink-soft); white-space:pre-line; text-decoration:line-through; margin:0 0 6px; padding-left:8px; border-left:3px solid #d9822b;}
+  .order-card.is-edited{box-shadow:0 0 0 3px rgba(217,130,43,0.45);}
+  .cancel-banner{background:#f6e0dc; border:2px solid var(--stamp); border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:14px; display:flex; justify-content:space-between; align-items:center; gap:10px;}
+  .cancel-banner b{color:var(--stamp);}
+  .cancel-banner button{border:1px solid var(--stamp); background:#fff; color:var(--stamp); border-radius:16px; padding:4px 12px; font-weight:900; cursor:pointer; white-space:nowrap;}
   .oc-sum{background:#fff; border:1px solid var(--inprogress-blue); border-radius:8px; padding:10px 12px; margin:8px 0 12px;}
   .oc-sum-head{display:flex; justify-content:space-between; align-items:center; font-weight:900; font-size:14px; margin-bottom:6px;}
   .speak-btn{border:1px solid var(--inprogress-blue); background:#fff; color:var(--inprogress-blue); border-radius:18px; font-size:14px; font-weight:900; padding:4px 12px; cursor:pointer;}
@@ -130,6 +136,7 @@
 <button class="completed-toggle" id="completedToggleBtn">📋 今日已完成訂單 (0) <span class="arrow">▶</span></button>
 <div class="completed-list" id="completedList"></div>
 
+<div id="cancelledBox"></div>
 <div class="grid" id="ordersGrid"></div>
 <div class="last-check" id="lastCheck"></div>
 
@@ -138,6 +145,10 @@ const BACKEND_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxCI5tW3qH4
 let audioCtx = null;
 let seenIds = new Set();
 let firstLoad = true;
+let editSeen = {};      // orderId -> 已經看過的修改次數
+let cancelSeen = new Set();
+let dismissedCancels = new Set();
+try{ dismissedCancels = new Set(JSON.parse(localStorage.getItem('dismissedCancels')||'[]')); }catch(e){}
 
 async function backendCall(payload){
   const res = await fetch(BACKEND_WEBHOOK_URL, {
@@ -150,7 +161,7 @@ async function backendCall(payload){
   return data;
 }
 
-function beep(){
+function beep(phrase){
   try{
     if(!audioCtx) return;
     const o = audioCtx.createOscillator();
@@ -163,15 +174,15 @@ function beep(){
     setTimeout(()=>{ o.frequency.value = 660; }, 150);
     setTimeout(()=>{ o.stop(); }, 320);
   }catch(e){}
-  announceNewOrder();
+  announceNewOrder(phrase);
 }
 
-function announceNewOrder(){
+function announceNewOrder(phrase){
   try{
     if(!('speechSynthesis' in window)) return;
     // 叮咚聲放完後再講，不要疊在一起
     setTimeout(()=>{
-      const utter = new SpeechSynthesisUtterance('有訂單喔');
+      const utter = new SpeechSynthesisUtterance(phrase || '有訂單喔');
       utter.lang = 'zh-TW';
       utter.rate = 1;
       utter.volume = 1;
@@ -340,6 +351,19 @@ document.getElementById('ordersGrid').addEventListener('click', (e)=>{
   }
 });
 
+function renderCancelled(list){
+  const box = document.getElementById('cancelledBox');
+  const show = list.filter(c=>!dismissedCancels.has(c.orderId));
+  box.innerHTML = show.map(c=>`<div class="cancel-banner" data-cid="${escapeHtml(c.orderId)}">
+    <div><b>❌ 客人已取消 ${escapeHtml(c.orderId)}</b>　${escapeHtml(c.customerName)}　${escapeHtml(c.scheduledTime)}　$${escapeHtml(c.totalAmount)}<br><span style="font-size:12px;color:var(--ink-soft);white-space:pre-line;">${escapeHtml(c.itemsText)}</span></div>
+    <button data-dismiss="${escapeHtml(c.orderId)}">知道了</button></div>`).join('');
+  box.querySelectorAll('[data-dismiss]').forEach(b=>b.addEventListener('click', ()=>{
+    dismissedCancels.add(b.getAttribute('data-dismiss'));
+    try{ localStorage.setItem('dismissedCancels', JSON.stringify([...dismissedCancels])); }catch(e){}
+    renderCancelled(list);
+  }));
+}
+
 async function refreshOrders(){
   let data;
   try{
@@ -361,13 +385,14 @@ async function refreshOrders(){
       const actionHtml = inProgress
         ? `<div class="oc-progress-badge">🍳 製作中</div><button class="btn green oc-confirm" data-action="complete">製作完成</button>`
         : `<button class="btn primary oc-confirm" data-action="confirm">確認訂單</button>`;
-      return `<div class="order-card${isNew?' is-new':''}${inProgress?' in-progress':''}" data-order-id="${escapeHtml(o.orderId)}">
+      return `<div class="order-card${isNew?' is-new':''}${inProgress?' in-progress':''}${o.editCount>0?' is-edited':''}" data-order-id="${escapeHtml(o.orderId)}">
         <div class="oc-head">
           <span class="oc-id">${escapeHtml(o.orderId)}</span>
           <span class="oc-type">${escapeHtml(o.orderType)}</span>
         </div>
         <div class="oc-row"><b>${escapeHtml(o.customerName)}</b>　${escapeHtml(o.phone)}</div>
         <div class="oc-row">取餐時間：<b>${escapeHtml(o.scheduledTime)}</b>${o.isFuture ? '<span class="oc-future-tag">📅 預訂單（非今日）</span>' : ''}</div>
+        ${o.editCount>0 ? `<div class="oc-edit-badge">✏️ 客人已修改（第 ${o.editCount} 次）</div>${o.prevItems ? `<div class="oc-prev">修改前：\n${escapeHtml(o.prevItems)}</div>` : ''}` : ''}
         <div class="oc-items">${escapeHtml(o.itemsText)}</div>
         <div class="oc-total">$${escapeHtml(o.totalAmount)}</div>
         ${inProgress ? summaryHtml(o) : ''}
@@ -378,8 +403,15 @@ async function refreshOrders(){
 
   if(!firstLoad){
     const newOnes = orders.filter(o=>!seenIds.has(o.orderId));
+    const editedOnes = orders.filter(o=> seenIds.has(o.orderId) && (o.editCount||0) > (editSeen[o.orderId]||0));
+    const newCancels = (data.cancelled||[]).filter(c=>!cancelSeen.has(c.orderId) && !dismissedCancels.has(c.orderId));
     if(newOnes.length>0) beep();
+    else if(newCancels.length>0) beep('訂單取消喔');
+    else if(editedOnes.length>0) beep('訂單修改喔');
   }
+  orders.forEach(o=>{ editSeen[o.orderId] = o.editCount||0; });
+  (data.cancelled||[]).forEach(c=>cancelSeen.add(c.orderId));
+  renderCancelled(data.cancelled||[]);
   seenIds = new Set(orders.map(o=>o.orderId));
   firstLoad = false;
 
