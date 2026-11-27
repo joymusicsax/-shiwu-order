@@ -302,6 +302,13 @@
       <span class="mode-tag" id="timeSelectTag">自取點餐</span>
     </div>
 
+    <div class="card" id="lineLoginCard" style="display:none; border:2px dashed var(--ink-soft);">
+      <div style="font-weight:900; font-size:15px;">📲 用 LINE 登入，可以追蹤訂單</div>
+      <div style="font-size:13px; color:var(--ink-soft); margin-top:6px; line-height:1.6;">登入後下單，能隨時查看訂單進度（店家已收到／製作中／已完成）、修改或取消訂單，也能一鍵再點上次的餐點。</div>
+      <button class="act-btn" id="lineLoginBtn" style="border-color:#06C755; background:#06C755; color:#fff;">用 LINE 登入</button>
+      <div style="font-size:12px; color:var(--ink-soft); margin-top:8px; text-align:center;">不登入也可以直接點餐，只是無法在這裡追蹤訂單</div>
+    </div>
+
     <div class="card">
       <h2 class="card-title">您的資訊</h2>
       <div id="soloNameField">
@@ -641,6 +648,10 @@ function showTimeSelectView(){
   initDateTime();
   prefillCustomerInfo();
 }
+document.getElementById('lineLoginBtn').addEventListener('click', ()=>{
+  try{ liff.login({ redirectUri: window.location.href }); }
+  catch(e){ alert('目前無法開啟 LINE 登入，可以直接繼續點餐'); }
+});
 function customerStorageKey(){
   return (liffProfile && liffProfile.userId) ? `shiwu_phone_${liffProfile.userId}` : 'shiwu_phone_guest';
 }
@@ -650,6 +661,9 @@ async function prefillCustomerInfo(){
   const phoneInput = document.getElementById('soloPhoneInput');
   const debugLine = document.getElementById('liffDebugLine');
   if(debugLine) debugLine.textContent = 'LINE狀態：' + (window.__liffDebug || '未知');
+  const loginCard = document.getElementById('lineLoginCard');
+  const canLogin = (typeof liff !== 'undefined') && !(liffProfile && liffProfile.userId) && !editing && /liff\.init成功|isLoggedIn=false/.test(window.__liffDebug||'');
+  if(loginCard) loginCard.style.display = canLogin ? 'block' : 'none';
   if(liffProfile && liffProfile.displayName){
     nameInput.value = liffProfile.displayName;
     document.getElementById('soloNameField').style.display = 'none'; // 已經有LINE顯示名稱，不用再讓客人自己打
