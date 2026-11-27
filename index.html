@@ -261,6 +261,7 @@
   .act-btn{width:100%; padding:13px; border-radius:8px; font-weight:900; font-size:15px; border:2px solid; background:#fff; cursor:pointer; margin-top:10px;}
   .cancel-btn{border-color:var(--stamp); color:var(--stamp);}
   .edit-btn{border-color:var(--ink); color:var(--ink);}
+  .reorder-btn{border-color:var(--accent, #b06a30); color:var(--accent, #b06a30);}
   #doneActions{margin-bottom:12px;}
   .cancel-note{margin-top:10px; font-size:12px; color:var(--ink-soft); text-align:center; line-height:1.6;}
 </style>
@@ -283,6 +284,7 @@
       <button class="role-btn" id="groupEnterBtn" style="aspect-ratio:auto; padding:12px; font-size:15px;">開始點餐</button>
     </div>
 
+    <button class="role-btn" id="reorderBtn" style="display:none; width:100%; aspect-ratio:auto; padding:12px; font-size:15px; margin-top:10px;"></button>
     <button class="role-btn" id="myOrdersBtn" style="width:100%; aspect-ratio:auto; padding:12px; font-size:15px; margin-top:10px;">📋 我的訂單（查看進度）</button>
 
     <div class="landing-text">
@@ -1401,10 +1403,14 @@ function isEditable(o){
   return o.orderType==='自取點餐' && Array.isArray(o.detail) && o.detail.length>0 && o.detail.every(d=>d.id)
     && (o.scheduledDate||'') >= dateToYMD(new Date());
 }
+function isReorderable(o){
+  return o.orderType==='自取點餐' && Array.isArray(o.detail) && o.detail.length>0 && o.detail.every(d=>d.id);
+}
 function orderActionsHtml(o){
   const st = o.status || '待確認';
-  if(st==='已完成' || st==='已取消') return '';
   const id = escapeHtml(String(o.orderId));
+  const reorderHtml = isReorderable(o) ? `<button class="act-btn reorder-btn" data-oid="${id}">🔁 再點一次</button>` : '';
+  if(st==='已完成' || st==='已取消') return reorderHtml;
   let h = '';
   const deadline = (o.createdAt||0) + 10*60*1000 - (o.skew||0);
   if(o.createdAt && Date.now() < deadline){
@@ -1413,7 +1419,7 @@ function orderActionsHtml(o){
     h += `<div class="cancel-note">已超過 10 分鐘，如需取消請聯絡店家</div>`;
   }
   if(isEditable(o)) h += `<button class="act-btn edit-btn" data-oid="${id}">✏️ 修改訂單</button>`;
-  return h;
+  return h + reorderHtml;
 }
 function tickCancel(){
   document.querySelectorAll('.cancel-btn[data-deadline]').forEach(btn=>{
@@ -1442,6 +1448,52 @@ function cartFromDetail(detail){
     return {key: cartKey(d.sec, d.id, protein, staple, note, addons), section:d.sec, itemId:d.id, protein, staple, note, addons, qty:d.qty||1};
   });
 }
+// 再點一次：把過去訂單的餐點帶進購物車，進入一般點餐流程，客人仍可自由增減
+function startReorder(o){
+  if(!isReorderable(o)) return;
+  const dropped = [];
+  const lines = cartFromDetail(o.detail).filter(line=>{
+    const item = lineItemInfo(line);
+    if(!item){ dropped.push('已下架的品項'); return false; }
+    if(SOLD_OUT_IDS.has(line.itemId)){ dropped.push(item.zh + '（今日已售完）'); return false; }
+    return true;
+  });
+  if(lines.length === 0){ alert('這張訂單的餐點目前都無法再點（已下架或已售完），請直接選擇新的餐點'); return; }
+  editing = null;
+  stopDoneStatusPolling();
+  mode = 'solo';
+  cart = lines;
+  soloCustomerName = o.customerName || soloCustomerName;
+  soloCustomerPhone = o.phone || soloCustomerPhone;
+  ['orderCompleteView','myOrdersView','orderView'].forEach(id=>{ document.getElementById(id).style.display = 'none'; });
+  document.getElementById('groupForm').style.display = 'none';
+  showTimeSelectView();
+  showToast('已帶入上次的餐點，下一步可以自由修改');
+  if(dropped.length) setTimeout(()=>alert('以下品項無法帶入：\n' + dropped.join('\n')), 300);
+}
+// 首頁「再點上次的餐點」按鈕：登入後撈一次最近訂單，找最近一筆可重點的
+async function setupReorderButton(){
+  try{ await liffReady; }catch(e){}
+  if(!liffProfile || !liffProfile.userId) return;
+  try{
+    const r = await backendCall({action:'get_my_orders', lineUserId: liffProfile.userId});
+    const skew = (r.serverNow || Date.now()) - Date.now();
+    (r.orders||[]).forEach(o=>{ o.skew = skew; myOrdersCache[o.orderId] = o; });
+    const last = (r.orders||[]).find(o=>o.status!=='已取消' && isReorderable(o));
+    if(!last) return;
+    const names = last.detail.map(d=>d.name + (d.protein ? `（${d.protein}）` : ''));
+    const btn = document.getElementById('reorderBtn');
+    btn.innerHTML = `🔁 再點一次上次的餐點<br><span style="font-size:12px; font-weight:400;">${escapeHtml(names.slice(0,2).join('、'))}${names.length>2 ? ` 等 ${names.length} 項` : ''}</span>`;
+    btn.setAttribute('data-oid', last.orderId);
+    btn.style.display = 'block';
+  }catch(e){ console.warn('讀取歷史訂單失敗', e); }
+}
+setupReorderButton();
+document.getElementById('reorderBtn').addEventListener('click', ()=>{
+  const o = myOrdersCache[document.getElementById('reorderBtn').getAttribute('data-oid')];
+  if(o) startReorder(o);
+});
+
 function ymdToDate(ymd){ const [y,m,d] = ymd.split('-').map(Number); return new Date(y, m-1, d); }
 function startEditOrder(o){
   stopDoneStatusPolling();
@@ -1489,6 +1541,13 @@ document.addEventListener('click', async (e)=>{
       openMyOrders();
     }
     showToast && showToast('訂單已取消，已通知店家');
+    return;
+  }
+  const rbtn = e.target.closest('.reorder-btn');
+  if(rbtn){
+    const oid = rbtn.getAttribute('data-oid');
+    const o = (lastOrder && lastOrder.orderId===oid) ? lastOrder : myOrdersCache[oid];
+    if(o) startReorder(o);
     return;
   }
   if(ebtn){
