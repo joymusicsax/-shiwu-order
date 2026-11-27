@@ -229,7 +229,7 @@ function buildSummary(detail){
   const staples = new Map();   // 主食 -> 份數
   const singles = new Map();   // 單點 -> 份數
   const perPot = [];           // 展開用：[{group, label, staple}]
-  let noStaple = 0;
+  let noStaple = 0, hasBulk = false;
   detail.forEach(d=>{
     const qty = d.qty || 1;
     if(isPotLine(d)){
@@ -241,12 +241,16 @@ function buildSummary(detail){
       p.variants.set(lab, (p.variants.get(lab)||0) + qty);
       if(d.staple) staples.set(d.staple, (staples.get(d.staple)||0) + qty); else noStaple += qty;
       for(let i=0;i<qty;i++) perPot.push({group:g, label:lab, staple:d.staple||''});
+    } else if(d.sec==='bulk_side'){
+      staples.set(d.name, (staples.get(d.name)||0) + qty);   // 團體總量單：附餐只有總數，不分鍋
+      hasBulk = true;
     } else if(['白飯','冬粉','王子麵'].includes(d.name)){
       staples.set(d.name, (staples.get(d.name)||0) + qty);   // 另外單點的主食，併進附餐
     } else {
       singles.set(d.name, (singles.get(d.name)||0) + qty);
     }
   });
+  if(hasBulk) noStaple = 0;   // 團體總量單：附餐只列總數，不提醒「沒選主食」
   return {pots, staples, singles, perPot, noStaple};
 }
 const PROTEIN_EMOJI = {'豬':'🐷','牛':'🐮','羊':'🐑'};
