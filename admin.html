@@ -32,6 +32,17 @@
   .btn.green{background:var(--line-green); color:#fff; border-color:var(--line-green);}
   .btn:active{opacity:0.75;}
 
+  .ctrl-panel{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px;}
+  .ctrl-panel.three{grid-template-columns:repeat(3,1fr);}
+  .tile{border:none; border-radius:16px; color:#fff; padding:14px 6px 12px; text-align:center; cursor:pointer; box-shadow:0 4px 0 rgba(0,0,0,.25); font-family:inherit; display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .tile:active{transform:translateY(2px); box-shadow:0 2px 0 rgba(0,0,0,.25);}
+  .tile .ti{font-size:30px; line-height:1.2;}
+  .tile .tt{font-size:17px; font-weight:900;}
+  .tile .ts{font-size:11.5px; opacity:.92;}
+  .tile.t-pause{background:#b06a30;} .tile.t-open{background:#2e8b57;} .tile.t-close{background:#b23a1e;} .tile.t-status{background:#2e6db4;} .tile.t-back{background:#79695a;}
+  .ctrl-box{grid-column:1/-1; background:var(--card-bg); border:1px solid var(--cream-dark); border-radius:12px; padding:12px 14px; font-size:14px; line-height:1.8; white-space:pre-line;}
+  .ctrl-box label{display:block; font-weight:900; margin-top:6px;}
+  .ctrl-box input,.ctrl-box select{width:100%; padding:9px; border:1.5px solid var(--ink); border-radius:8px; font-size:15px; background:#fff;}
   .grid{
     display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;
   }
@@ -114,20 +125,9 @@
 
 <div class="topbar">
   <h1>拾伍鍋物 · 訂單看板</h1>
-  <div class="busy-panel">
-    <span class="busy-status open" id="busyStatusText">正常接單</span>
-    <select class="btn" id="blockSlotSelect" style="cursor:pointer;">
-      <option value="1">封鎖接下來 1 個時段（30分鐘）</option>
-      <option value="2">封鎖接下來 2 個時段（1小時）</option>
-      <option value="3">封鎖接下來 3 個時段（1.5小時）</option>
-      <option value="4">封鎖接下來 4 個時段（2小時）</option>
-      <option value="6">封鎖接下來 6 個時段（3小時）</option>
-    </select>
-    <button class="btn" id="blockSlotBtn">套用封鎖</button>
-    <button class="btn" id="closeTodayBtn" style="background:var(--stamp); color:#fff; border-color:var(--stamp);">🔒 下班（今日售完）</button>
-    <button class="btn green" id="clearBlockBtn" style="display:none;">清除封鎖，恢復正常</button>
-  </div>
+  <span class="busy-status open" id="busyStatusText">正常接單</span>
 </div>
+<div id="ctrlPanel" class="ctrl-panel"></div>
 <nav class="owner-nav">
   <a href="owner.html">🏠 總覽</a>
 </nav>
@@ -456,65 +456,97 @@ async function refreshOrders(){
   document.getElementById('lastCheck').textContent = '最後更新：' + new Date().toLocaleTimeString('zh-TW', {hour12:false});
 }
 
+let ctrlView = 'main';
+let lastBlock = {blocked:false};
 async function refreshBusy(){
   let data;
-  try{
-    data = await backendCall({action:'get_slot_block_status'});
-  }catch(e){ return; }
+  try{ data = await backendCall({action:'get_slot_block_status'}); }catch(e){ return; }
+  lastBlock = data;
   const statusEl = document.getElementById('busyStatusText');
-  const clearBtn = document.getElementById('clearBlockBtn');
   if(data.blocked && data.until === 'ALL'){
-    statusEl.textContent = '今日已下班，不再接單';
-    statusEl.className = 'busy-status closed';
-    clearBtn.style.display = 'inline-block';
+    statusEl.textContent = '今日已下班，不再接單'; statusEl.className = 'busy-status closed';
   }else if(data.blocked){
-    statusEl.textContent = `已封鎖今天 ${data.until} 以前的時段`;
-    statusEl.className = 'busy-status closed';
-    clearBtn.style.display = 'inline-block';
+    statusEl.textContent = `暫停接單中（今天 ${data.until} 以前的時段已封鎖）`; statusEl.className = 'busy-status closed';
   }else{
-    statusEl.textContent = '正常接單';
-    statusEl.className = 'busy-status open';
-    clearBtn.style.display = 'none';
+    statusEl.textContent = '正常接單'; statusEl.className = 'busy-status open';
   }
 }
-
-document.getElementById('blockSlotBtn').addEventListener('click', async ()=>{
-  const actionStatus = document.getElementById('busyActionStatus');
-  const slotCount = document.getElementById('blockSlotSelect').value;
-  actionStatus.textContent = '設定中…';
-  try{
-    await backendCall({action:'block_upcoming_slots', slotCount});
-    await refreshBusy();
-    actionStatus.textContent = '已套用時段封鎖';
-  }catch(e){
-    console.error('block_upcoming_slots 失敗', e);
-    actionStatus.textContent = '設定失敗：' + e.message;
+function tile(cls, icon, title, sub, act){
+  return `<button class="tile ${cls}" data-act="${act}"><span class="ti">${icon}</span><span class="tt">${title}</span><span class="ts">${sub}</span></button>`;
+}
+function todayYMD(){
+  const d = new Date(Date.now() + 8*3600*1000);   // 台北時間
+  return d.toISOString().slice(0,10);
+}
+function renderCtrl(extra){
+  const el = document.getElementById('ctrlPanel');
+  el.className = 'ctrl-panel' + (ctrlView==='pause' ? ' three' : '');
+  if(ctrlView==='main'){
+    el.innerHTML = tile('t-pause','⏸️','暫停接單','訂單太多時使用','go-pause')
+      + tile('t-open','🔓','臨時營業','週一週二有開、補開晚上','go-open')
+      + tile('t-close','⛔','今日下班','顯示「今日已售罄」','close')
+      + tile('t-status','📋','目前狀態','查看接單與營業設定','status')
+      + (extra ? `<div class="ctrl-box">${extra}</div>` : '');
+  }else if(ctrlView==='pause'){
+    el.innerHTML = tile('t-pause','⏱','30 分鐘','封鎖接下來 1 個時段','p1')
+      + tile('t-pause','🕐','1 小時','封鎖接下來 2 個時段','p2')
+      + tile('t-pause','🕑','2 小時','封鎖接下來 4 個時段','p4')
+      + tile('t-close','🌙','到今天打烊','今天剩下的時段全部暫停','pall')
+      + tile('t-open','▶','恢復接單','解除暫停','resume')
+      + tile('t-back','↩️','返回','回主選單','back');
+  }else if(ctrlView==='open'){
+    const hours = ['12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30','19:00','19:30'];
+    el.innerHTML = `<div class="ctrl-box" style="white-space:normal">
+      <label>日期</label><input type="date" id="openDate" value="${todayYMD()}" min="${todayYMD()}">
+      <label>開始營業時間（臨時營業用）</label><select id="openFrom">${hours.map(h=>`<option ${h==='17:00'?'selected':''}>${h}</option>`).join('')}</select>
+    </div>`
+      + tile('t-open','🔓','臨時營業','這天開始接單','open-on')
+      + tile('t-close','🚫','臨時公休','這天不接單','open-off')
+      + tile('t-status','🧹','清除設定','這天恢復預設','open-clear')
+      + tile('t-back','↩️','返回','回主選單','back');
   }
-});
-document.getElementById('closeTodayBtn').addEventListener('click', async ()=>{
-  const actionStatus = document.getElementById('busyActionStatus');
-  actionStatus.textContent = '設定中…';
-  try{
-    await backendCall({action:'close_for_today'});
-    await refreshBusy();
-    actionStatus.textContent = '已設定今日售完';
-  }catch(e){
-    console.error('close_for_today 失敗', e);
-    actionStatus.textContent = '設定失敗：' + e.message;
+}
+async function ctrlDo(act){
+  const status = document.getElementById('busyActionStatus');
+  const run = async (fn, okMsg)=>{
+    status.textContent = '設定中…';
+    try{ await fn(); await refreshBusy(); status.textContent = okMsg; }
+    catch(e){ console.error(act, e); status.textContent = '設定失敗：' + e.message; }
+  };
+  if(act==='go-pause'){ ctrlView='pause'; return renderCtrl(); }
+  if(act==='go-open'){ ctrlView='open'; return renderCtrl(); }
+  if(act==='back'){ ctrlView='main'; return renderCtrl(); }
+  if(act==='status'){
+    status.textContent = '讀取中…';
+    try{ const r = await backendCall({action:'get_status_text'}); status.textContent=''; ctrlView='main'; renderCtrl(r.text); }
+    catch(e){ status.textContent = '讀取失敗：' + e.message; }
+    return;
   }
-});
-document.getElementById('clearBlockBtn').addEventListener('click', async ()=>{
-  const actionStatus = document.getElementById('busyActionStatus');
-  actionStatus.textContent = '設定中…';
-  try{
-    await backendCall({action:'clear_slot_block'});
-    await refreshBusy();
-    actionStatus.textContent = '已恢復正常接單';
-  }catch(e){
-    console.error('clear_slot_block 失敗', e);
-    actionStatus.textContent = '設定失敗：' + e.message;
+  if(/^p(1|2|4|all)$/.test(act)){
+    const n = act==='pall' ? 16 : act.slice(1);
+    await run(()=>backendCall({action:'block_upcoming_slots', slotCount:n}), act==='pall' ? '已暫停到今天打烊' : '已暫停接單');
+    ctrlView='main'; return renderCtrl();
   }
+  if(act==='resume'){
+    await run(()=>backendCall({action:'clear_slot_block'}), '已恢復正常接單');
+    ctrlView='main'; return renderCtrl();
+  }
+  if(act==='close'){
+    if(!confirm('確定今日下班？客人會看到「今日已售罄」')) return;
+    return run(()=>backendCall({action:'close_for_today'}), '已設定今日下班（要恢復請到「暫停接單 → 恢復接單」）');
+  }
+  if(/^open-/.test(act)){
+    const date = document.getElementById('openDate').value;
+    if(!date){ status.textContent = '請選日期'; return; }
+    if(act==='open-on') await run(()=>backendCall({action:'set_open_day', date, open:true, from:document.getElementById('openFrom').value}), `已設定 ${date} 臨時營業`);
+    if(act==='open-off') await run(()=>backendCall({action:'set_open_day', date, open:false}), `已設定 ${date} 臨時公休`);
+    if(act==='open-clear') await run(()=>backendCall({action:'clear_open_day', date}), `已清除 ${date} 的設定`);
+  }
+}
+document.getElementById('ctrlPanel').addEventListener('click', e=>{
+  const b = e.target.closest('.tile'); if(b) ctrlDo(b.getAttribute('data-act'));
 });
+renderCtrl();
 
 // ============ 今日已完成訂單（收合面板） ============
 let completedPanelOpen = false;
